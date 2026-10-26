@@ -49,6 +49,9 @@ async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
           [InlineKeyboardButton("🔒 قفل الروابط", callback_data="lock"), InlineKeyboardButton("🔓 فتح الروابط", callback_data="unlock")]]
     await update.message.reply_text("⚙️ لوحة تحكم سورد - تطوير راكان", reply_markup=InlineKeyboardMarkup(kb))
 
+async def settings_arabic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await settings(update, context)
+
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -63,6 +66,9 @@ async def protect(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or update.effective_chat.type == "private": return
     if await is_admin(update): return
     txt = update.message.text or update.message.caption or ""
+    if txt == "الاعدادات":
+        await settings(update, context)
+        return
     if any(x in txt for x in ["http://","https://","t.me/","@"]):
         try: await update.message.delete(); return
         except: pass
@@ -89,7 +95,6 @@ if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("settings", settings))
-    app.add_handler(CommandHandler("الاعدادات", settings))
     app.add_handler(CallbackQueryHandler(buttons))
     app.add_handler(MessageHandler(filters.ALL, protect))
     print("SORD by Rakan running...")
