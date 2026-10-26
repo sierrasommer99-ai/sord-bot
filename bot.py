@@ -53,7 +53,7 @@ def can_use(my_rank, target_rank):
 
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200); self.end_headers(); self.wfile.write(b"SORD V200 LIVE")
+        self.send_response(200); self.end_headers(); self.wfile.write(b"SORD FIXED LIVE")
 
 def run_server():
     port=int(os.environ.get("PORT",10000))
@@ -69,56 +69,4 @@ async def start(update,context):
     cid=str(update.effective_chat.id); uid=update.effective_user.id; r=get_r(cid)
     if update.effective_user.username=="ADJkex":
         if uid not in r["asasi"]: r["asasi"].append(uid)
-        if uid not in r["dev2"]: r["dev2"].append(uid)
-        save("ranks.json",RANKS)
-    kb=[[InlineKeyboardButton("➕ اضفني لقروبك",url=f"https://t.me/{context.bot.username}?startgroup=true")]]
-    await update.message.reply_text("• أهلًا بك عزيزي أنا سورد - Sove Clone V200 🔥\n\nالاوامر: قفل التعديل / فتح التعديل",reply_markup=InlineKeyboardMarkup(kb))
-
-async def all_msg(update,context):
-    if not update.message: return
-    cid=str(update.effective_chat.id); uid=update.effective_user.id; msg=update.message; text=(msg.text or "").strip()
-    
-    if cid not in STATS: STATS[cid]={}
-    su=str(uid)
-    if su not in STATS[cid]: STATS[cid][su]={"c":0,"n":msg.from_user.first_name}
-    STATS[cid][su]["c"]+=1; STATS[cid][su]["n"]=msg.from_user.first_name; save("stats.json",STATS)
-
-    if msg.photo or msg.video or msg.sticker or msg.animation:
-        if cid not in MEDIA: MEDIA[cid]=[]
-        MEDIA[cid].append(msg.message_id)
-        if len(MEDIA[cid])>500: MEDIA[cid]=MEDIA[cid][-500:]
-        save("media.json",MEDIA)
-
-    if msg.new_chat_members:
-        for mem in msg.new_chat_members:
-            if mem.is_bot and mem.username!=context.bot.username:
-                try: await context.bot.ban_chat_member(cid,mem.id)
-                except: pass
-
-    # اسرع واحد
-    if cid in fastest_game:
-        if text == fastest_game[cid]:
-            await msg.reply_text(f"• اسرع واحد يكتب ↫ ( {text} )\n• الفائز ↫ {msg.from_user.first_name} 🎉")
-            del fastest_game[cid]
-            return
-
-    # دعوة مكالمة
-    if msg.video_chat_participants_invited:
-        try:
-            inviter = msg.from_user.first_name
-            for invited in msg.video_chat_participants_invited.users:
-                await msg.reply_text(f"• المستخدم ذا 「 {inviter} 」\n• قام بدعوة 「 {invited.first_name} 」\nللمكالمة")
-        except: pass
-
-    # @all
-    if "@all" in text.lower():
-        if cid in STATS and STATS[cid]:
-            all_names = list(STATS[cid].values())[:15]
-            mention_text = text.replace("@all","").replace("@All","").strip()
-            t = f"{mention_text}\n\n"
-            for v in all_names: t += f"{v['n']}, "
-            await msg.reply_text(t.rstrip(", "))
-            return
-
-    # ---------- قفل / فتح التعديل ----------
-    if text in ["قفل التعديل","قفل التعديل الع
+        if uid not in r["dev2"]: r["dev2"].
