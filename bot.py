@@ -80,19 +80,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.username == "ADJkex" and user_id not in r["dev_asasi"]:
         r["dev_asasi"].append(user_id)
         save_json(RANKS_FILE, RANKS)
-    text = """بوت سورد - راكان @ADJkex
 
-الاوامر:
-رتبته - بالرد يطلع رتبته
-رفع ديف اساسي / ديف 2 / اكسترا / ميث - بالرد
-تنزيل ديف اساسي / ديف 2 / اكسترا / ميث
-الرتب - عرض الرتب
-اضف امر + الاسم - بالرد على رسالة
-حذف امر + الاسم
-تغير امر قديم الى جديد
-الاوامر - عرض الاوامر المضافة"""
-    kb = [[InlineKeyboardButton("اضفني لقروبك", url=f"https://t.me/{context.bot.username}?startgroup=true")],
-          [InlineKeyboardButton("راكان ADJkex", url="https://t.me/ADJkex")]]
+    # الواجهة القديمة الحلوة اللي تبيها
+    text = """• أهلًا بك عزيزي أنا اسمي سورد
+
+━━━━━━━━━━━━━━━
+حرفيًا أفضل بوت!
+━━━━━━━━━━━━━━━
+- حماية شاملة
+- أحدث الألعاب والمميزات
+- منع التعديل والاباحي وكلشي
+━━━━━━━━━━━━━━━
+✅ إرفعني مشرف وبتفعل تلقائيًا
+━━━━━━━━━━━━━━━
+- مطوري ↫ راكان
+- @ADJkex"""
+
+    kb = [[InlineKeyboardButton("➕ اضفني لقروبك", url=f"https://t.me/{context.bot.username}?startgroup=true")],
+          [InlineKeyboardButton("👨‍💻 المطور راكان", url="https://t.me/ADJkex")]]
     await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb))
 
 async def handle_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -102,14 +107,47 @@ async def handle_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     text = (msg.text or "").strip()
 
-    # 1- رتبته - بدون سنايبر - بس الرتبة
+    # رتبته - بدون سنايبر - بس الرتبة
     if text == "رتبته" and msg.reply_to_message:
         target = msg.reply_to_message.from_user
         rank = get_user_rank(chat_id, target.id)
         await msg.reply_text(f"رتبته => {rank}")
         return
 
-    # 2- اضف امر
+    # الاوامر - يعرض الاوامر المختصرة
+    if text == "الاوامر":
+        custom = get_custom(chat_id)
+        txt = """الاوامر:
+رتبته - بالرد يطلع رتبته
+رفع ديف اساسي / ديف 2 / اكسترا / ميث - بالرد
+تنزيل ديف اساسي / ديف 2 / اكسترا / ميث
+الرتب - عرض الرتب
+اضف امر + الاسم - بالرد على رسالة
+حذف امر + الاسم
+تغير امر قديم الى جديد
+الاوامر - عرض الاوامر المضافة
+
+الاوامر المضافة:
+"""
+        if custom:
+            for k in custom.keys():
+                txt += f"- {k}\n"
+        else:
+            txt += "لا يوجد"
+        await msg.reply_text(txt)
+        return
+
+    # الرتب
+    if text == "الرتب":
+        r = get_ranks(chat_id)
+        await msg.reply_text(f"""الرتب:
+Dev الاساسي: {len(r['dev_asasi'])}
+Dev 2: {len(r['dev2'])}
+اكسترا: {len(r['extra'])}
+ميث: {len(r['myth'])}""")
+        return
+
+    # اضف امر
     if text.startswith("اضف امر"):
         name = text.replace("اضف امر", "", 1).strip().lower()
         if not name or not msg.reply_to_message:
@@ -122,7 +160,7 @@ async def handle_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(f"تم اضافة امر {name}")
         return
 
-    # 3- حذف امر
+    # حذف امر
     if text.startswith("حذف امر"):
         name = text.replace("حذف امر", "", 1).strip().lower()
         custom = get_custom(chat_id)
@@ -132,7 +170,7 @@ async def handle_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.reply_text(f"تم حذف امر {name}")
         return
 
-    # 4- تغير امر
+    # تغير امر
     if text.startswith("تغير امر"):
         rest = text.replace("تغير امر", "", 1).strip()
         if " الى " in rest:
@@ -145,13 +183,9 @@ async def handle_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 del custom[old]
                 save_json(COMMANDS_FILE, CUSTOM)
                 await msg.reply_text(f"تم تغير امر {old} الى {new}")
-            else:
-                await msg.reply_text("الامر القديم مو موجود")
-        else:
-            await msg.reply_text("الصيغة: تغير امر قديم الى جديد")
         return
 
-    # 5- رفع الرتب
+    # رفع الرتب
     if msg.reply_to_message and ("رفع" in text or "تنزيل" in text):
         r = get_ranks(chat_id)
         if ("ديف اساسي" in text) and user_id not in r["dev_asasi"] and msg.from_user.username != "ADJkex":
@@ -164,21 +198,21 @@ async def handle_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif "ميث" in text: rank = "myth"
         elif "ديف" in text: rank = "dev"
         if rank:
-            target_id = msg.reply_to_message.from_user.id
-            target_name = msg.reply_to_message.from_user.first_name
+            tid = msg.reply_to_message.from_user.id
+            tname = msg.reply_to_message.from_user.first_name
             if "رفع" in text:
-                if target_id not in r[rank]:
-                    r[rank].append(target_id)
+                if tid not in r[rank]:
+                    r[rank].append(tid)
                     save_json(RANKS_FILE, RANKS)
-                    await msg.reply_text(f"تم رفع {target_name} {rank}")
+                    await msg.reply_text(f"تم رفع {tname} {rank}")
             else:
-                if target_id in r[rank]:
-                    r[rank].remove(target_id)
+                if tid in r[rank]:
+                    r[rank].remove(tid)
                     save_json(RANKS_FILE, RANKS)
-                    await msg.reply_text(f"تم تنزيل {target_name}")
+                    await msg.reply_text(f"تم تنزيل {tname}")
             return
 
-    # 6- تشغيل الاوامر المضافة
+    # تشغيل الاوامر المضافة
     custom = get_custom(chat_id)
     if text.lower() in custom:
         await msg.reply_text(custom[text.lower()])
@@ -228,5 +262,5 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_all))
     app.add_handler(MessageHandler(filters.ALL & ~filters.UpdateType.EDITED_MESSAGE, handle_all))
     app.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE, anti_edit))
-    print("SORD Clean - Ratbth Simple running...")
+    print("SORD Old UI + New Features running...")
     app.run_polling()
