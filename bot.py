@@ -1,51 +1,40 @@
-import os
-import asyncio
-import threading
-import time
-import json
-import random
-from collections import defaultdict
+import os, asyncio, threading, time, json
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from telegram.constants import ChatMemberStatus
 
 BOT_TOKEN = os.getenv('BOT_TOKEN','').strip()
-user_messages = defaultdict(list)
-pending_lock = {}
-pending_add = {}
-fastest_game = {}
 
-for f in ['ranks.json','stats.json','custom.json','media.json','locks.json','muted.json']:
-    if not os.path.exists(f):
-        with open(f,'w') as fp:
-            json.dump({},fp)
+LOCKS_FILE='locks.json'
+RANKS_FILE='ranks.json'
+if not os.path.exists(LOCKS_FILE):
+    open(LOCKS_FILE,'w').write('{}')
+if not os.path.exists(RANKS_FILE):
+    open(RANKS_FILE,'w').write('{}')
 
 def load(f):
     try:
-        with open(f,'r') as fp:
-            return json.load(fp)
+        return json.load(open(f,'r'))
     except:
         return {}
-
 def save(f,d):
-    try:
-        with open(f,'w') as fp:
-            json.dump(d,fp)
-    except:
-        pass
+    json.dump(d, open(f,'w'))
 
-RANKS=load('ranks.json')
-STATS=load('stats.json')
-CUSTOM=load('custom.json')
-MEDIA=load('media.json')
-LOCKS=load('locks.json')
-MUTED=load('muted.json')
+LOCKS=load(LOCKS_FILE)
+RANKS=load(RANKS_FILE)
 
 def get_r(cid):
     cid=str(cid)
     if cid not in RANKS:
-        RANKS[cid]={'dev2':[],'dev':[],'myth_b':[],'myth':[],'my':[],'m':[],'asasi':[]}
+        RANKS[cid]={'asasi':[],'dev2':[],'dev':[]}
     return RANKS[cid]
 
-RANK_LEVEL = {'member':0
+class H(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b'OK')
+
+def run_server():
+    p=int(os.environ.get
