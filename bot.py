@@ -41,16 +41,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 - مطوري ↫ راكان"""
 
     kb = [[InlineKeyboardButton("➕ اضفني لقروبك", url=f"https://t.me/{context.bot.username}?startgroup=true")],
-          [InlineKeyboardButton("👨‍💻 المطور راكان", url="https://t.me/Rakan")]]
+          [InlineKeyboardButton("👨‍💻 المطور راكان", url="https://t.me/ADJkex")]]
     await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb))
 
 async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = [[InlineKeyboardButton("🔰 الحماية", callback_data="prot"), InlineKeyboardButton("🎮 الألعاب", callback_data="games")],
           [InlineKeyboardButton("🔒 قفل الروابط", callback_data="lock"), InlineKeyboardButton("🔓 فتح الروابط", callback_data="unlock")]]
     await update.message.reply_text("⚙️ لوحة تحكم سورد - تطوير راكان", reply_markup=InlineKeyboardMarkup(kb))
-
-async def settings_arabic(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await settings(update, context)
 
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -93,9 +90,4 @@ if __name__ == "__main__":
         asyncio.set_event_loop(loop)
     except: pass
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("settings", settings))
-    app.add_handler(CallbackQueryHandler(buttons))
-    app.add_handler(MessageHandler(filters.ALL, protect))
-    print("SORD by Rakan running...")
-    app.run_polling()
+    app.add_handler(CommandHandler("start
