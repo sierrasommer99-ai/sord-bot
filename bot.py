@@ -2,7 +2,7 @@ import os, asyncio, threading, time
 from collections import defaultdict
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, CallbackQueryHandler, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from telegram.constants import ChatMemberStatus
 
 BOT_TOKEN = os.getenv("BOT_TOKEN","").strip()
@@ -12,7 +12,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"SORD Bot Running")
+        self.wfile.write(b"SORD Running")
 
 def run_server():
     port = int(os.environ.get("PORT", 10000))
@@ -36,7 +36,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 - أحدث الألعاب والمميزات
 ━━━━━━━━━━━━━━━
 ✅ إرفعني مشرف وبتفعل تلقائيًا
-✅ اكتب الاعدادات
 ━━━━━━━━━━━━━━━
 - مطوري ↫ راكان"""
 
@@ -45,31 +44,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb))
 
 async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    kb = [[InlineKeyboardButton("🔰 الحماية", callback_data="prot"), InlineKeyboardButton("🎮 الألعاب", callback_data="games")],
-          [InlineKeyboardButton("🔒 قفل الروابط", callback_data="lock"), InlineKeyboardButton("🔓 فتح الروابط", callback_data="unlock")]]
-    await update.message.reply_text("⚙️ لوحة تحكم سورد - تطوير راكان", reply_markup=InlineKeyboardMarkup(kb))
-
-async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    if q.data == "prot":
-        await q.edit_message_text("🔰 حماية سورد شغالة:\n- حذف الروابط\n- حذف التوجيه\n- منع السبام")
-    elif q.data == "games":
-        await q.edit_message_text("🎮 ألعاب سورد قريبًا!")
-    else:
-        await q.edit_message_text(f"تم: {q.data} - بوت سورد")
+    await update.message.reply_text("⚙️ لوحة تحكم سورد - تطوير راكان\n\n🔰 الحماية شغالة:\n- حذف الروابط\n- حذف التوجيه\n- منع السبام")
 
 async def protect(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or update.effective_chat.type == "private": return
     if await is_admin(update): return
-    txt = update.message.text or update.message.caption or ""
+    txt = update.message.text or ""
     if txt == "الاعدادات":
         await settings(update, context)
         return
-    if any(x in txt for x in ["http://","https://","t.me/","@"]):
+    if any(x in txt for x in ["http://","https://","t.me/"]):
         try: await update.message.delete(); return
         except: pass
-    if update.message.forward_from or update.message.forward_from_chat:
+    if update.message.forward_from:
         try: await update.message.delete(); return
         except: pass
     now = time.time()
@@ -90,4 +77,8 @@ if __name__ == "__main__":
         asyncio.set_event_loop(loop)
     except: pass
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("settings", settings))
+    app.add_handler(MessageHandler(filters.ALL, protect))
+    print("SORD by Rakan - ADJkex running...")
+    app.run_polling()
