@@ -53,7 +53,7 @@ def get_user_rank(chat_id, user_id):
     if user_id in r["myth"]: return "Myth"
     return "عضو"
 
-PORN_WORDS = ["كس", "زب", "نيك", "xnxx", "porn", "سكس"]
+PORN_WORDS = ["كس", "زب", "نيك", "xnxx", "porn", "sex", "xxx", "سكس", "طيز", "كسمك"]
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -81,7 +81,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         r["dev_asasi"].append(user_id)
         save_json(RANKS_FILE, RANKS)
 
-    # الواجهة القديمة الحلوة اللي تبيها
     text = """• أهلًا بك عزيزي أنا اسمي سورد
 
 ━━━━━━━━━━━━━━━
@@ -107,25 +106,40 @@ async def handle_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     text = (msg.text or "").strip()
 
-    # رتبته - بدون سنايبر - بس الرتبة
-    if text == "رتبته" and msg.reply_to_message:
+    # رتبتي - بدون سنايبر
+    if text == "رتبتي" and msg.reply_to_message:
         target = msg.reply_to_message.from_user
         rank = get_user_rank(chat_id, target.id)
         await msg.reply_text(f"رتبته => {rank}")
         return
+    if text == "رتبتي" and not msg.reply_to_message:
+        rank = get_user_rank(chat_id, user_id)
+        await msg.reply_text(f"رتبتك => {rank}")
+        return
 
-    # الاوامر - يعرض الاوامر المختصرة
-    if text == "الاوامر":
+    # الرتب
+    if text == "الرتب" or text == "/ranks":
+        r = get_ranks(chat_id)
+        await msg.reply_text(f"""الرتب:
+Dev الاساسي: {len(r['dev_asasi'])}
+Dev: {len(r['dev'])}
+Dev 2: {len(r['dev2'])}
+اكسترا: {len(r['extra'])}
+ميث: {len(r['myth'])}""")
+        return
+
+    # الاوامر
+    if text == "الاوامر" or text == "/commands":
         custom = get_custom(chat_id)
         txt = """الاوامر:
-رتبته - بالرد يطلع رتبته
+رتبتي - بالرد يطلع رتبته
 رفع ديف اساسي / ديف 2 / اكسترا / ميث - بالرد
 تنزيل ديف اساسي / ديف 2 / اكسترا / ميث
 الرتب - عرض الرتب
 اضف امر + الاسم - بالرد على رسالة
 حذف امر + الاسم
 تغير امر قديم الى جديد
-الاوامر - عرض الاوامر المضافة
+الاوامر - عرض الاوامر
 
 الاوامر المضافة:
 """
@@ -135,16 +149,6 @@ async def handle_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             txt += "لا يوجد"
         await msg.reply_text(txt)
-        return
-
-    # الرتب
-    if text == "الرتب":
-        r = get_ranks(chat_id)
-        await msg.reply_text(f"""الرتب:
-Dev الاساسي: {len(r['dev_asasi'])}
-Dev 2: {len(r['dev2'])}
-اكسترا: {len(r['extra'])}
-ميث: {len(r['myth'])}""")
         return
 
     # اضف امر
@@ -168,6 +172,8 @@ Dev 2: {len(r['dev2'])}
             del custom[name]
             save_json(COMMANDS_FILE, CUSTOM)
             await msg.reply_text(f"تم حذف امر {name}")
+        else:
+            await msg.reply_text("الامر مو موجود")
         return
 
     # تغير امر
@@ -183,9 +189,13 @@ Dev 2: {len(r['dev2'])}
                 del custom[old]
                 save_json(COMMANDS_FILE, CUSTOM)
                 await msg.reply_text(f"تم تغير امر {old} الى {new}")
+            else:
+                await msg.reply_text("الامر القديم مو موجود")
+        else:
+            await msg.reply_text("الصيغة: تغير امر قديم الى جديد")
         return
 
-    # رفع الرتب
+    # رفع / تنزيل الرتب
     if msg.reply_to_message and ("رفع" in text or "تنزيل" in text):
         r = get_ranks(chat_id)
         if ("ديف اساسي" in text) and user_id not in r["dev_asasi"] and msg.from_user.username != "ADJkex":
@@ -193,7 +203,7 @@ Dev 2: {len(r['dev2'])}
             return
         rank = None
         if "ديف اساسي" in text: rank = "dev_asasi"
-        elif "ديف 2" in text: rank = "dev2"
+        elif "ديف 2" in text or "ديف2" in text: rank = "dev2"
         elif "اكسترا" in text: rank = "extra"
         elif "ميث" in text: rank = "myth"
         elif "ديف" in text: rank = "dev"
@@ -228,7 +238,7 @@ Dev 2: {len(r['dev2'])}
         if bad in low:
             try: await msg.delete(); return
             except: pass
-    if any(x in low for x in ["http://","https://","t.me/"]):
+    if any(x in low for x in ["http://","https://","t.me/","www."]):
         try: await msg.delete(); return
         except: pass
     if msg.forward_from or msg.forward_from_chat:
@@ -246,6 +256,11 @@ Dev 2: {len(r['dev2'])}
 async def anti_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.edited_message: return
     if update.effective_chat.type == "private": return
+    chat_id = str(update.effective_chat.id)
+    r = get_ranks(chat_id)
+    uid = update.edited_message.from_user.id if update.edited_message.from_user else None
+    if uid and (uid in r["dev_asasi"] or uid in r["dev"] or uid in r["dev2"]):
+        return
     try:
         await update.edited_message.delete()
     except: pass
@@ -262,5 +277,5 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_all))
     app.add_handler(MessageHandler(filters.ALL & ~filters.UpdateType.EDITED_MESSAGE, handle_all))
     app.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE, anti_edit))
-    print("SORD Old UI + New Features running...")
+    print("SORD Old UI - No Channel - Full Features running...")
     app.run_polling()
