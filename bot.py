@@ -85,4 +85,141 @@ async def text_all(u,c):
     if not u.message: return
     msg=u.message; txt=(msg.text or '').strip(); cid=str(u.effective_chat.id); uid=msg.from_user.id; name=msg.from_user.first_name; low=txt.lower()
     if cid not in STATS: STATS[cid]={}
-    STATS[cid][str(uid)]=STATS[cid].get(str(uid),0)+1; save
+    STATS[cid][str(uid)]=STATS[cid].get(str(uid),0)+1; save('stats.json',STATS)
+    target=None
+    if msg.reply_to_message: target=msg.reply_to_message.from_user
+    def need(): return target is None
+    if txt=='م1': await msg.reply_text('م1 حماية',reply_markup=kb_menu()); return
+    if txt=='م2': await msg.reply_text('م2 رفع',reply_markup=kb_menu()); return
+    if txt=='م3': await msg.reply_text('م3 حظر',reply_markup=kb_menu()); return
+    if txt in ['الاوامر','/start']: await msg.reply_text('سترونق',reply_markup=kb_menu()); return
+    if 'كس' in low or 'xnxx' in low or 'porn' in low:
+        if LOCKS.get(cid,{}).get('porn',True):
+            try: await msg.delete()
+            except: pass
+            return
+    if txt=='رفع مالك':
+        if need(): await msg.reply_text('رد'); return
+        r=get_r(cid); r['malik'].append(target.id) if target.id not in r['malik'] else None; save('ranks.json',RANKS); await msg.reply_text('تم رفعه مالك'); return
+    if txt=='تنزيل مالك':
+        if need(): return
+        r=get_r(cid); r['malik'].remove(target.id) if target.id in r['malik'] else None; save('ranks.json',RANKS); await msg.reply_text('تم تنزيله'); return
+    if txt=='رفع منشئ':
+        if need(): await msg.reply_text('رد'); return
+        r=get_r(cid); r['monshe'].append(target.id) if target.id not in r['monshe'] else None; save('ranks.json',RANKS); await msg.reply_text('تم رفعه منشئ'); return
+    if txt=='تنزيل منشئ':
+        if need(): return
+        r=get_r(cid); r['monshe'].remove(target.id) if target.id in r['monshe'] else None; save('ranks.json',RANKS); await msg.reply_text('تم تنزيله'); return
+    if txt=='رفع مدير':
+        if need(): await msg.reply_text('رد'); return
+        r=get_r(cid); r['modir'].append(target.id) if target.id not in r['modir'] else None; save('ranks.json',RANKS); await msg.reply_text('تم رفعه مدير'); return
+    if txt=='تنزيل مدير':
+        if need(): return
+        r=get_r(cid); r['modir'].remove(target.id) if target.id in r['modir'] else None; save('ranks.json',RANKS); await msg.reply_text('تم تنزيله'); return
+    if txt=='رفع ادمن':
+        if need(): await msg.reply_text('رد'); return
+        r=get_r(cid); r['admin'].append(target.id) if target.id not in r['admin'] else None; save('ranks.json',RANKS); await msg.reply_text('تم رفعه ادمن'); return
+    if txt=='تنزيل ادمن':
+        if need(): return
+        r=get_r(cid); r['admin'].remove(target.id) if target.id in r['admin'] else None; save('ranks.json',RANKS); await msg.reply_text('تم تنزيله'); return
+    if txt=='رفع مميز':
+        if need(): await msg.reply_text('رد'); return
+        r=get_r(cid); r['momayz'].append(target.id) if target.id not in r['momayz'] else None; save('ranks.json',RANKS); await msg.reply_text('تم رفعه مميز'); return
+    if txt=='تنزيل مميز':
+        if need(): return
+        r=get_r(cid); r['momayz'].remove(target.id) if target.id in r['momayz'] else None; save('ranks.json',RANKS); await msg.reply_text('تم تنزيله'); return
+    if txt=='رفع مطور':
+        if need(): await msg.reply_text('رد'); return
+        r=get_r(cid); r['motawer'].append(target.id) if target.id not in r['motawer'] else None; save('ranks.json',RANKS); await msg.reply_text('تم رفعه مطور'); return
+    if 'رفع' in txt and 'dev' in low:
+        if need(): await msg.reply_text('رد'); return
+        r=get_r(cid); r['dev'].append(target.id) if target.id not in r['dev'] else None; save('ranks.json',RANKS); await msg.reply_text('تم رفعه Dev'); return
+    if txt=='رفع مشرف':
+        if need(): await msg.reply_text('رد'); return
+        await msg.reply_text('رفع مشرف',reply_markup=kb_prom(target.id)); return
+    if txt=='المالكين': r=get_r(cid); await msg.reply_text('المالكين'); return
+    if txt=='كتم':
+        if need(): await msg.reply_text('رد'); return
+        try: await c.bot.restrict_chat_member(cid,target.id,permissions=ChatPermissions(can_send_messages=False)); await msg.reply_text('تم كتمه')
+        except: pass
+        return
+    if txt=='الغاء الكتم':
+        if need(): return
+        try: await c.bot.restrict_chat_member(cid,target.id,permissions=ChatPermissions(can_send_messages=True,can_send_media_messages=True,can_send_other_messages=True,can_add_web_page_previews=True)); await msg.reply_text('تم الغاء كتمه')
+        except: pass
+        return
+    if txt=='حظر':
+        if need(): await msg.reply_text('رد'); return
+        try: await c.bot.ban_chat_member(cid,target.id); await msg.reply_text('تم حظره')
+        except: pass
+        return
+    if txt=='الغاء الحظر':
+        if need(): return
+        try: await c.bot.unban_chat_member(cid,target.id); await msg.reply_text('تم الغاء حظره')
+        except: pass
+        return
+    if txt=='تقيد':
+        if need(): await msg.reply_text('رد'); return
+        try: await c.bot.restrict_chat_member(cid,target.id,permissions=ChatPermissions(can_send_messages=False)); await msg.reply_text('تم تقييده')
+        except: pass
+        return
+    if txt=='طرد':
+        if need(): await msg.reply_text('رد'); return
+        try: await c.bot.ban_chat_member(cid,target.id); await c.bot.unban_chat_member(cid,target.id); await msg.reply_text('تم طرده')
+        except: pass
+        return
+    if txt.startswith('قفل'):
+        typ=txt.replace('قفل','').strip().split(' ')[0]
+        mp={'الروابط':'link','المعرف':'user','التاك':'tag','الشارحه':'fwd','الصور':'photo','الفيديو':'video','البوتات':'bot','التعديل':'edit','الاباحي':'porn','الكل':'all'}
+        if typ in mp:
+            if cid not in LOCKS: LOCKS[cid]={}
+            LOCKS[cid][mp[typ]]=True; save('locks.json',LOCKS); await msg.reply_text(f'تم قفل {typ}')
+        return
+    if txt.startswith('فتح'):
+        typ=txt.replace('فتح','').strip().split(' ')[0]
+        mp={'الروابط':'link','المعرف':'user','التاك':'tag','الشارحه':'fwd','الصور':'photo','الفيديو':'video','البوتات':'bot','التعديل':'edit','الاباحي':'porn','الكل':'all'}
+        if typ in mp:
+            if cid not in LOCKS: LOCKS[cid]={}
+            LOCKS[cid][mp[typ]]=False; save('locks.json',LOCKS); await msg.reply_text(f'تم فتح {typ}')
+        return
+    if txt=='الاعدادات':
+        out='الاعدادات:\n'
+        for k,v in LOCKS.get(cid,{}).items(): out+=f'{k}:{"مقفل" if v else "مفتوح"}\n'
+        await msg.reply_text(out,reply_markup=kb_menu()); return
+    if txt=='رتبتي': r=rn(uid,cid); cnt=STATS.get(cid,{}).get(str(uid),0); await msg.reply_text(f'رتبتك {r} رسائلك {cnt}'); return
+    if txt=='ايدي': await msg.reply_text(f'{uid}'); return
+    if txt=='بوت' or txt=='سورد': await msg.reply_text(f'نعم {name}؟'); return
+    if txt=='المطور': await msg.reply_text('@ADJkex'); return
+async def photo_h(u,c):
+    cid=str(u.effective_chat.id)
+    if LOCKS.get(cid,{}).get('photo',False):
+        try: await u.message.delete()
+        except: pass
+async def edit_h(u,c):
+    if not u.edited_message: return
+    cid=str(u.effective_chat.id)
+    if LOCKS.get(cid,{}).get('edit',False):
+        try: await u.edited_message.delete()
+        except: pass
+async def new_m(u,c):
+    msg=u.message; cid=str(u.effective_chat.id)
+    for user in msg.new_chat_members:
+        if user.is_bot and user.id != c.bot.id:
+            if LOCKS.get(cid,{}).get('bot',True):
+                try: await c.bot.ban_chat_member(cid,user.id)
+                except: pass
+if __name__=='__main__':
+    if not TOKEN: raise RuntimeError('no token')
+    import asyncio
+    threading.Thread(target=run_http,daemon=True).start()
+    try: loop=asyncio.new_event_loop(); asyncio.set_event_loop(loop)
+    except: pass
+    app=ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler('start',cmd_start))
+    app.add_handler(CallbackQueryHandler(cb_all))
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS,new_m))
+    app.add_handler(MessageHandler(filters.TEXT,text_all))
+    app.add_handler(MessageHandler(filters.PHOTO,photo_h))
+    app.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE,edit_h))
+    print('STRONG FIXED LIVE')
+    app.run_polling()
