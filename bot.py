@@ -6,7 +6,19 @@ from telegram.ext import CallbackQueryHandler,MessageHandler,filters
 
 # TOKEN
 TOKEN=os.getenv('BOT_TOKEN','').strip()
-
+# الغاء الانضمام الاجباري نهائيا
+FORCE_CHANNEL = None
+CHANNEL = None
+MUST_JOIN = None
+CHANNEL_ID = None
+JOIN_CHANNEL = None
+FORCE_SUB = None
+async def check_join(*a, **k): return True
+async def must_join(*a, **k): return True
+async def is_joined(*a, **k): return True
+async def check_channel(*a, **k): return True
+async def check_sub(*a, **k): return True
+async def is_subbed(*a, **k): return True
 # LOAD/SAVE
 def ld(f):
  try:
