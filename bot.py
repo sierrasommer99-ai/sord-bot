@@ -3013,7 +3013,7 @@ AWAMER_TEXT = '''قائمة الاوامر
 • الالعاب : اكتب ( الالعاب )
 '''
 
-def kb_groups():
+def kb_groups_override_old():
  return kb_commands()
 
 def cb_groups_override():
@@ -3352,7 +3352,7 @@ async def cb(u,c):
   await q.edit_message_text('💻 اوامر Dev\n• المطور\n• اضف امر\n• مسح امر\n• الاوامر المضافه\n• تفعيل / تعطيل', reply_markup=kb_commands())
   return
  if d=='sets':
-  await q.edit_message_text('⚙️ الإعدادات\n• اعدادات القفل\n• اعدادات الترحيب\n• اعدادات الالعاب', reply_markup=kb_commands())
+  await q.edit_message_text(text_group_settings() if 'text_group_settings' in globals() else '⚙️ الإعدادات\n\nاختر القسم اللي تبي تعدّل فيه', reply_markup=kb_group_settings() if 'kb_group_settings' in globals() else kb_commands())
   return
  if d=='onoff':
   await q.edit_message_text('⚙️ التفعيل والتعطيل\n• تفعيل الالعاب\n• تعطيل الالعاب\n• قفل الاباحي\n• فتح الاباحي', reply_markup=kb_commands())
@@ -3997,4 +3997,4 @@ if __name__=='__main__':
   edited
  ))
  print('SORD LIAM FULL 3900 LINES FIXED - NO FORCE JOIN - NO KB_COMMANDS - NO APP DECORATOR - CLEAR ARABIC')
- app.run_polling(allowed_updates=["message","edited_message","callback_query","chat_member"], drop_pending_updates=True)
+ app.run_polling(allowed_updates=["message","edited_message","callbac
