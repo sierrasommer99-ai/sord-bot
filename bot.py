@@ -6,7 +6,17 @@ from telegram.ext import CallbackQueryHandler,MessageHandler,filters
 
 # TOKEN
 TOKEN=os.getenv('BOT_TOKEN','').strip()
-
+   # تعطيل الانضمام الإجباري نهائياً
+   FORCE_CHANNEL = None
+   CHANNEL = None
+   MUST_JOIN = None
+   
+   async def check_join(*args, **kwargs):
+       return True
+   async def is_joined(*args, **kwargs):
+       return True
+   async def check_channel(*args, **kwargs):
+       return True
 # LOAD/SAVE
 def ld(f):
  try:
