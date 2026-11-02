@@ -910,10 +910,8 @@ async def check_and_demote_bots_on_promote(c, m):
   except:
     pass
   return False
-
-# هاندل لتحديثات المشرفين من إعدادات تيليجرام
-@app.on_chat_member_updated()
-async def bot_promote_protection(c, m):
+async def bot_promote_protection_disabled(c, m):
+  return False
   try:
     # لو حد انرفع مشرف
     if m.new_chat_member and m.new_chat_member.status in ['administrator','creator']:
