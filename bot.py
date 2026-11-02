@@ -5,7 +5,24 @@ from telegram.ext import ApplicationBuilder,CommandHandler
 from telegram.ext import CallbackQueryHandler,MessageHandler,filters
 
 # TOKEN
-TOKEN=os.getenv('BOT_TOKEN','').strip()
+TOKEN=os.getenv('BOT_TOKEN','').
+# === الغاء الانضمام الاجباري نهائيا ===
+FORCE_CHANNEL=None
+CHANNEL=None
+MUST_JOIN=None
+CHANNEL_ID=None
+JOIN_CHANNEL=None
+FORCE_SUB=None
+FORCE_JOIN=None
+REQUIRED_CHANNEL=None
+MUST_JOIN_CHANNEL=None
+A_TOOLSx2=None
+async def check_join(*a,**k):return True
+async def must_join(*a,**k):return True
+async def is_joined(*a,**k):return True
+async def check_channel(*a,**k):return True
+async def check_sub(*a,**k):return True
+async def is_subbed(*a,**k):return True
 
 # LOAD/SAVE
 def ld(f):
@@ -13,9 +30,10 @@ def ld(f):
   return json.load(open(f,encoding='utf-8'))
  except:
   return {}
-
 def sv(f,d):
  json.dump(d,open(f,'w',encoding='utf-8'),ensure_ascii=False,indent=2)
+
+# FILES
 
 # FILES
 for fp in ['locks.json','toggles.json','custom.json','top.json','ranks.json','muted.json','warnings.json','violations.json']:
