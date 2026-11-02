@@ -6,19 +6,7 @@ from telegram.ext import CallbackQueryHandler,MessageHandler,filters
 
 # TOKEN
 TOKEN=os.getenv('BOT_TOKEN','').strip()
-# الغاء الانضمام الاجباري نهائيا
-FORCE_CHANNEL = None
-CHANNEL = None
-MUST_JOIN = None
-CHANNEL_ID = None
-JOIN_CHANNEL = None
-FORCE_SUB = None
-async def check_join(*a, **k): return True
-async def must_join(*a, **k): return True
-async def is_joined(*a, **k): return True
-async def check_channel(*a, **k): return True
-async def check_sub(*a, **k): return True
-async def is_subbed(*a, **k): return True
+
 # LOAD/SAVE
 def ld(f):
  try:
@@ -923,6 +911,28 @@ async def check_and_demote_bots_on_promote(c, m):
     pass
   return False
 
+# هاندل لتحديثات المشرفين من إعدادات تيليجرام
+@app.on_chat_member_updated()
+async def bot_promote_protection(c, m):
+  try:
+    # لو حد انرفع مشرف
+    if m.new_chat_member and m.new_chat_member.status in ['administrator','creator']:
+      # شيك لو هو بوت
+      if m.new_chat_member.user and m.new_chat_member.user.is_bot:
+        # لا تنزل نفسك
+        me=await c.get_me()
+        if m.new_chat_member.user.id==me.id:
+          return
+        # نزله
+        await c.promote_chat_member(m.chat.id, m.new_chat_member.user.id, is_anonymous=False,
+          can_delete_messages=False, can_restrict_members=False, can_promote_members=False,
+          can_change_info=False, can_invite_users=False, can_pin_messages=False)
+        try:
+          await c.send_message(m.chat.id, f'⌯ تم منع رفع البوت {m.new_chat_member.user.first_name}\n⌯ البوتات ما تنرفع\n⌯ تم تنزيله تلقائياً ✅')
+        except:
+          pass
+  except:
+    pass
 
 
 
