@@ -3959,5 +3959,5 @@ if __name__=='__main__':
   filters.UpdateType.EDITED_MESSAGE,
   edited
  ))
- print('SORD LIAM FULL 300 LINES LIVE')
- app.run_polling()
+print('SORD LIAM FULL 300 LINES LIVE - GROUP MODE')
+app.run_polling(allowed_updates=["message","edited_message","callback_query","chat_member"], drop_pending_updates=True)
