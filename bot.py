@@ -1,33 +1,11 @@
 import os,json,threading
-# FIXED ENCODING
-os.environ['PYTHONIOENCODING']='utf-8'
-os.environ['PYTHONUTF8']='1'
 from http.server import HTTPServer,BaseHTTPRequestHandler
 from telegram import InlineKeyboardButton,InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder,CommandHandler
 from telegram.ext import CallbackQueryHandler,MessageHandler,filters
 
-# TOKEN - FIXED NEW AAF
-TOKEN=os.getenv('BOT_TOKEN','').strip() or "8769832522:AAF1yu7T8C-DQEfz6ggzvidtKrs_1SUi7Gk"
-
-# الغاء الانضمام الاجباري نهائيا
-FORCE_CHANNEL=None
-CHANNEL=None
-MUST_JOIN=None
-CHANNEL_ID=None
-JOIN_CHANNEL=None
-FORCE_SUB=None
-FORCE_JOIN=None
-REQUIRED_CHANNEL=None
-MUST_JOIN_CHANNEL=None
-A_TOOLSx2=None
-JOIN_CHANNEL_ID=None
-async def check_join(*a,**k): return True
-async def must_join(*a,**k): return True
-async def is_joined(*a,**k): return True
-async def check_channel(*a,**k): return True
-async def check_sub(*a,**k): return True
-async def is_subbed(*a,**k): return True
+# TOKEN
+TOKEN=os.getenv('BOT_TOKEN','').strip()
 
 # LOAD/SAVE
 def ld(f):
@@ -239,12 +217,6 @@ def kb_groups():
    InlineKeyboardButton('• الإعدادات •',callback_data='sets')],
   [InlineKeyboardButton('• اغلاق •',callback_data='close')]
  ])
-
-# FIX kb_commands - كان يسبب NameError: name 'kb_commands' is not defined
-def kb_commands():
- return kb_groups()
-def kb_commands_old(): return kb_groups()
-def kb_main_commands(): return kb_main()
 
 def kb_lock_p1():
  b=[]
@@ -939,7 +911,8 @@ async def check_and_demote_bots_on_promote(c, m):
     pass
   return False
 
-# هاندل لتحديثات المشرفين - FIXED بدون @app
+# هاندل لتحديثات المشرفين من إعدادات تيليجرام
+@app.on_chat_member_updated()
 async def bot_promote_protection(c, m):
   try:
     # لو حد انرفع مشرف
@@ -3013,7 +2986,7 @@ AWAMER_TEXT = '''قائمة الاوامر
 • الالعاب : اكتب ( الالعاب )
 '''
 
-def kb_groups_override_old():
+def kb_groups():
  return kb_commands()
 
 def cb_groups_override():
@@ -3349,10 +3322,10 @@ async def cb(u,c):
   await q.edit_message_text('🎮 التسلية والخدمية\n• الالعاب\n• توب المتفاعلين\n• رتبتي\n• حظ\n• كت تويت\n• العقاب\n• الحكم\n• الكرسي', reply_markup=kb_commands())
   return
  if d=='dev':
-  await q.edit_message_text('💻 اوامر Dev', reply_markup=kb_commands())
+  await q.edit_message_text('💻 اوامر Dev\n• المطور\n• اضف امر\n• مسح امر\n• الاوامر المضافه\n• تفعيل / تعطيل', reply_markup=kb_commands())
   return
  if d=='sets':
-  await q.edit_message_text(text_group_settings(), reply_markup=kb_group_settings())
+  await q.edit_message_text('⚙️ الإعدادات\n• اعدادات القفل\n• اعدادات الترحيب\n• اعدادات الالعاب', reply_markup=kb_commands())
   return
  if d=='onoff':
   await q.edit_message_text('⚙️ التفعيل والتعطيل\n• تفعيل الالعاب\n• تعطيل الالعاب\n• قفل الاباحي\n• فتح الاباحي', reply_markup=kb_commands())
@@ -3996,5 +3969,5 @@ if __name__=='__main__':
   filters.UpdateType.EDITED_MESSAGE,
   edited
  ))
- print('SORD LIAM FULL 3900 LINES FIXED - NO FORCE JOIN - NO KB_COMMANDS - NO APP DECORATOR - CLEAR ARABIC')
- app.run_polling(allowed_updates=["message","edited_message","callback_query","chat_member"], drop_pending_updates=True)
+ print('SORD LIAM FULL 300 LINES LIVE')
+ app.run_polling()
