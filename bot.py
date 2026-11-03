@@ -1,11 +1,33 @@
 import os,json,threading
+# FIXED ENCODING
+os.environ['PYTHONIOENCODING']='utf-8'
+os.environ['PYTHONUTF8']='1'
 from http.server import HTTPServer,BaseHTTPRequestHandler
 from telegram import InlineKeyboardButton,InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder,CommandHandler
 from telegram.ext import CallbackQueryHandler,MessageHandler,filters
 
-# TOKEN
-TOKEN=os.getenv('BOT_TOKEN','').strip()
+# TOKEN - FIXED NEW AAF
+TOKEN=os.getenv('BOT_TOKEN','').strip() or "8769832522:AAF1yu7T8C-DQEfz6ggzvidtKrs_1SUi7Gk"
+
+# الغاء الانضمام الاجباري نهائيا
+FORCE_CHANNEL=None
+CHANNEL=None
+MUST_JOIN=None
+CHANNEL_ID=None
+JOIN_CHANNEL=None
+FORCE_SUB=None
+FORCE_JOIN=None
+REQUIRED_CHANNEL=None
+MUST_JOIN_CHANNEL=None
+A_TOOLSx2=None
+JOIN_CHANNEL_ID=None
+async def check_join(*a,**k): return True
+async def must_join(*a,**k): return True
+async def is_joined(*a,**k): return True
+async def check_channel(*a,**k): return True
+async def check_sub(*a,**k): return True
+async def is_subbed(*a,**k): return True
 
 # LOAD/SAVE
 def ld(f):
@@ -18,7 +40,7 @@ def sv(f,d):
  json.dump(d,open(f,'w',encoding='utf-8'),ensure_ascii=False,indent=2)
 
 # FILES
-for fp in ['locks.json','toggles.json','custom.json','top.json','ranks.json','muted.json','warnings.json','violations.json']:
+for fp in ['locks.json','toggles.json','custom.json','top.json','ranks.json','muted.json','warnings.json','violations.json','private_mode.json']:
  if not os.path.exists(fp):
   sv(fp,{})
 
@@ -26,6 +48,9 @@ LOCKS=ld('locks.json')
 if not LOCKS:
  LOCKS={}
 TOGGLES=ld('toggles.json')
+PRIVATE_MODE=ld('private_mode.json')
+if not PRIVATE_MODE:
+ PRIVATE_MODE={}
 TOP=ld('top.json')
 RANKS=ld('ranks.json')
 MUTED=ld('muted.json')
@@ -208,6 +233,21 @@ def kb_main():
  ])
 
 def kb_groups():
+ return InlineKeyboardMarkup([
+  [InlineKeyboardButton('• ادارة القروب •',callback_data='manage'),
+   InlineKeyboardButton('• التسلية والخدمية •',callback_data='fun')],
+  [InlineKeyboardButton('• اوامر Dev •',callback_data='dev')],
+  [InlineKeyboardButton('• الإعدادات •',callback_data='sets')],
+  [InlineKeyboardButton('• اغلاق •',callback_data='close')]
+ ])
+
+# FIX kb_commands - كان يسبب NameError: name 'kb_commands' is not defined
+def kb_commands():
+ return kb_groups()
+def kb_commands_old(): return kb_groups()
+def kb_main_commands(): return kb_main()
+
+def kb_groups_full():
  return InlineKeyboardMarkup([
   [InlineKeyboardButton('• القفل والفتح •',callback_data='lockpanel'),
    InlineKeyboardButton('• التفعيل والتعطيل •',callback_data='onoff')],
@@ -911,8 +951,7 @@ async def check_and_demote_bots_on_promote(c, m):
     pass
   return False
 
-# هاندل لتحديثات المشرفين من إعدادات تيليجرام
-@app.on_chat_member_updated()
+# هاندل لتحديثات المشرفين - FIXED بدون @app
 async def bot_promote_protection(c, m):
   try:
     # لو حد انرفع مشرف
@@ -2986,7 +3025,7 @@ AWAMER_TEXT = '''قائمة الاوامر
 • الالعاب : اكتب ( الالعاب )
 '''
 
-def kb_groups():
+def kb_groups_override_old():
  return kb_commands()
 
 def cb_groups_override():
@@ -3322,10 +3361,10 @@ async def cb(u,c):
   await q.edit_message_text('🎮 التسلية والخدمية\n• الالعاب\n• توب المتفاعلين\n• رتبتي\n• حظ\n• كت تويت\n• العقاب\n• الحكم\n• الكرسي', reply_markup=kb_commands())
   return
  if d=='dev':
-  await q.edit_message_text('💻 اوامر Dev\n• المطور\n• اضف امر\n• مسح امر\n• الاوامر المضافه\n• تفعيل / تعطيل', reply_markup=kb_commands())
+  await q.edit_message_text('💻 اوامر Dev', reply_markup=kb_commands())
   return
  if d=='sets':
-  await q.edit_message_text('⚙️ الإعدادات\n• اعدادات القفل\n• اعدادات الترحيب\n• اعدادات الالعاب', reply_markup=kb_commands())
+  await q.edit_message_text(text_group_settings(), reply_markup=kb_group_settings())
   return
  if d=='onoff':
   await q.edit_message_text('⚙️ التفعيل والتعطيل\n• تفعيل الالعاب\n• تعطيل الالعاب\n• قفل الاباحي\n• فتح الاباحي', reply_markup=kb_commands())
@@ -3576,6 +3615,105 @@ async def txt(u,c):
   await m.reply_text(f'سيتم وضع الامر {rank} للرتبة')
   return
 
+ if t in ['تفعيل الوضع الخاص','تفعيل الخاص','فعل الوضع الخاص','تفعيل وضع الخاص']:
+  PRIVATE_MODE[str(cid)]=True
+  sv('private_mode.json',PRIVATE_MODE)
+  await m.reply_text('✅ تم تفعيل الوضع الخاص\n\n• الرتب صارت خاصة بهذا القروب بس\n• رتبتك في هذا القروب ما تظهر في قروب ثاني\n• كل قروب له رتب لحاله')
+  return
+
+ if t in ['تعطيل الوضع الخاص','تعطيل الخاص','الغاء الوضع الخاص','عطل الوضع الخاص']:
+  PRIVATE_MODE[str(cid)]=False
+  sv('private_mode.json',PRIVATE_MODE)
+  await m.reply_text('❌ تم تعطيل الوضع الخاص\n\n• الرتب صارت عامة لكل القروبات\n• نفس رتبتك تظهر في كل قروب')
+  return
+
+ if t in ['الوضع الخاص','حالة الوضع الخاص','وضع الخاص']:
+  is_private = PRIVATE_MODE.get(str(cid), False)
+  status = 'مفعل ✅' if is_private else 'معطل ❌'
+  if is_private:
+   await m.reply_text(f'⚙️ الوضع الخاص: {status}\n\n• الرتب خاصة بهذا القروب بس\n• كل قروب رتب لحال\n• عشان تعطله اكتب: تعطيل الوضع الخاص')
+  else:
+   await m.reply_text(f'⚙️ الوضع الخاص: {status}\n\n• الرتب عامة لكل القروبات\n• نفس الرتبة في كل قروب\n• عشان تفعله اكتب: تفعيل الوضع الخاص')
+  return
+
+ # === نظام الرفع والتنزيل - كامل ===
+ if t.startswith('رفع ') or t.startswith('تنزيل ') or t.startswith('تنزيل') or t.startswith('رفع'):
+  # استخراج الرتبة والشخص
+  import re
+  # رفع ادمن / تنزيل ادمن
+  rank_map = {
+   'ادمن': 'ادمن', 'إدمن': 'ادمن', 'admin': 'ادمن',
+   'مدير': 'مدير', 'مدیر': 'مدير',
+   'منشئ': 'منشئ', 'منشى': 'منشئ',
+   'مالك': 'مالك',
+   'مميز': 'مميز', 'ممیز': 'مميز',
+   'Dev': 'Dev', 'dev': 'Dev', 'مطور': 'Dev',
+   'Dev2': 'Dev2', 'مطور ثاني': 'Dev2'
+  }
+  
+  is_raise = t.startswith('رفع')
+  
+  # حدد الرتبة
+  found_rank = None
+  for k,v in rank_map.items():
+   if k in t:
+    found_rank = v
+    break
+  
+  if found_rank:
+   target = None
+   target_name = 'المستخدم'
+   target_id = None
+   
+   if m.reply_to_message and m.reply_to_message.from_user:
+    target = m.reply_to_message.from_user
+    target_name = target.first_name
+    target_id = target.id
+   else:
+    mm = re.search(r'(\d{5,20})', t)
+    if mm:
+     target_id = int(mm.group(1))
+     try:
+      u = await c.get_users(target_id)
+      target_name = u.first_name
+     except:
+      target_name = str(target_id)
+    elif m.entities:
+     for e in m.entities:
+      if e.type in ['text_mention', 'mention']:
+       try:
+        if e.user:
+         target = e.user
+         target_name = target.first_name
+         target_id = target.id
+       except:
+        pass
+   
+   if not target_id:
+    await m.reply_text(f'⌯ رد على الشخص اللي تبي { "ترفعه" if is_raise else "تنزله" } {found_rank}\n⌯ او اكتب: { "رفع" if is_raise else "تنزيل" } {found_rank} بالرد')
+    return
+   
+   # حماية الرتب
+   if not await handle_moderation_protection(c, m, target_id):
+    return
+   
+   cid_s = str(cid)
+   if cid_s not in RANKS:
+    RANKS[cid_s] = {}
+   
+   if is_raise:
+    RANKS[cid_s][str(target_id)] = found_rank
+    sv('ranks.json', RANKS)
+    await m.reply_text(f'⌯ المستخدم {target_name}\n⌯ تم رفعه {found_rank} 🎖️')
+   else:
+    if str(target_id) in RANKS[cid_s]:
+     del RANKS[cid_s][str(target_id)]
+     sv('ranks.json', RANKS)
+     await m.reply_text(f'⌯ المستخدم {target_name}\n⌯ تم تنزيله من {found_rank}')
+    else:
+     await m.reply_text(f'⌯ {target_name} مو {found_rank} اصلا')
+   return
+
  if t in ['الرتب','الرتبي']:
   await m.reply_text(
    'الرتب المتاحة :\nDev\nDev2\nMY\nM\nمالك\nمنشئ\nمدير\nادمن\nمميز'
@@ -3587,7 +3725,41 @@ async def txt(u,c):
   return
 
  if t in ['المطور','SORD','Liam','ليام']:
-  await m.reply_text('SORD - سورد\nالمطور : Liam')
+  try:
+   # جيب صورة Liam
+   owner_id = None
+   try:
+    owner_user = await c.get_users('afiwd')
+    owner_id = owner_user.id
+    owner_name = owner_user.first_name
+    username = f"@{owner_user.username}" if owner_user.username else ""
+   except:
+    owner_id = m.from_user.id if m.from_user else None
+    owner_name = "Liam"
+    username = ""
+   
+   # جيب صورة البروفايل
+   photo_id = None
+   try:
+    async for p in c.get_chat_photos(owner_id, limit=1):
+     photo_id = p.file_id
+     break
+   except:
+    pass
+   
+   caption = f"SORD - سورد\nالمطور : {owner_name}\n{username}\n\nاقوى واسرع بوت حماية"
+   kb = InlineKeyboardMarkup([
+    [InlineKeyboardButton(f"• {owner_name} •", url=f"tg://user?id={owner_id}")],
+    [InlineKeyboardButton("• حساب المطور •", url="https://t.me/afiwd")],
+    [InlineKeyboardButton("• اغلاق •", callback_data="close")]
+   ])
+   
+   if photo_id:
+    await m.reply_photo(photo_id, caption=caption, reply_markup=kb)
+   else:
+    await m.reply_text(caption, reply_markup=kb)
+  except Exception as e:
+   await m.reply_text(f'SORD - سورد\nالمطور : Liam\n@afiwd')
   return
 
  if t.startswith('اهمس'):
@@ -3867,6 +4039,28 @@ async def txt(u,c):
   await m.reply_text('لوحة القفل',reply_markup=kb_lock_p1())
   return
 
+ if t in ['قفل التعديل','قفل التعديل العادي','قفل تعديل']:
+  set_lock(cid,'التعديل',True)
+  set_lock(cid,'التعديل العادي',True)
+  await m.reply_text('✅ تم قفل التعديل\n• اي واحد يعدل رسالته بتنمسح وينذكر اسمه')
+  return
+
+ if t in ['فتح التعديل','فتح التعديل العادي','فتح تعديل','الغاء قفل التعديل']:
+  set_lock(cid,'التعديل',False)
+  set_lock(cid,'التعديل العادي',False)
+  await m.reply_text('❌ تم فتح التعديل')
+  return
+
+ if t in ['قفل الاباحي','قفل الاباحه']:
+  set_lock(cid,'الاباحي',True)
+  await m.reply_text('✅ تم قفل الاباحي\n• اي صورة حتى لو لحالها بدون كلام بتنحذف\n• الكلام النصي ما ينحذف (بس الصور والفيديو)')
+  return
+
+ if t in ['فتح الاباحي','فتح الاباحه']:
+  set_lock(cid,'الاباحي',False)
+  await m.reply_text('❌ تم فتح الاباحي')
+  return
+
 # قفل التعديل والتعديل العادي - يمسح ويمنشن
 
 async def media_handler(u,c):
@@ -3875,20 +4069,18 @@ async def media_handler(u,c):
   return
  cid = str(m.chat.id)
  uid = str(m.from_user.id)
- # لو الاباحي مقفول وارسل صورة او فيديو اباحي (يعتبر مخالف)
+ # لو الاباحي مقفول - احذف اي صورة حتى لو لحالها بدون كابشن
  if LOCKS.get(cid,{}).get('الاباحي',False):
-  # لو فيه كابشن فيه كلمات اباحية
   cap = (m.caption or '').lower()
   bad_words = ['اباحي','سكس','porn','xxx','sex','نيك','كس','زب','طيز','مص','قحبه']
-  found = None
+  found = 'صورة بدون كابشن'
+  # لو فيه كابشن اباحي او الصورة لحالها
   for w in bad_words:
    if w in cap:
     found = w
     break
-  # لو الصورة بدون كابشن بس القفل شغال للاباحي - لا تحذف كل الصور، بس اللي فيها كلمات
-  # لو تبي يحذف كل الصور الاباحية حتى بدون كلمات، فعل هذا:
-  # found = found or 'صورة'
-  if found:
+  # اذا الصورة لحالها بدون كابشن او فيها كلمة اباحية - احذف
+  if True: # دايم احذف لما الاباحي مقفول
    try:
     await m.delete()
    except:
@@ -3940,6 +4132,22 @@ async def edited(u,c):
    except:
     pass
 
+def run():
+ try:
+  port = int(os.environ.get('PORT', '10000'))
+  class Handler(BaseHTTPRequestHandler):
+   def do_GET(self):
+    self.send_response(200)
+    self.send_header('Content-type','text/plain; charset=utf-8')
+    self.end_headers()
+    self.wfile.write('SORD BOT LIAM IS RUNNING'.encode('utf-8'))
+   def log_message(self, *a, **k):
+    return
+  httpd = HTTPServer(('0.0.0.0', port), Handler)
+  httpd.serve_forever()
+ except Exception as e:
+  print(f"HTTP SERVER ERROR: {e}")
+
 # تشغيل
 if __name__=='__main__':
  if not TOKEN:
@@ -3969,5 +4177,5 @@ if __name__=='__main__':
   filters.UpdateType.EDITED_MESSAGE,
   edited
  ))
- print('SORD LIAM FULL 300 LINES LIVE')
- app.run_polling()
+ print('SORD LIAM FULL 3900 LINES FIXED - NO FORCE JOIN - NO KB_COMMANDS - NO APP DECORATOR - CLEAR ARABIC')
+ app.run_polling(allowed_updates=["message","edited_message","callback_query","chat_member"], drop_pending_updates=True)
