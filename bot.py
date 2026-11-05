@@ -1,10 +1,3 @@
-coding: utf-8 -*-
-# يرد نفس الاوامر اللي تعطيه في خاص البوت بالضبط - بدون اضافات
-# اذا اضفت امر رتبته في الخاص بيرد نفس ردك بالضبط
-# يدعم المتغيرات: {الاسم} {الرتبة} {التفاعل} {الترتيب} {فلان}
-# Token: 8769832522:AAF-qXZfMQ75Z1XfnLN2hA-G90qP0xYKzTA
-# ID: 829238313 - https://t.me/afiwd
-
 import os
 from flask import Flask
 import threading
@@ -22,7 +15,7 @@ def run_flask():
 threading.Thread(target=run_flask, daemon=True).start()
 
 import telebot, json, time, requests
-from telebot.types import MessageEntity, User, InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import MessageEntity, User
 
 BOT_TOKEN = "8769832522:AAF-qXZfMQ75Z1XfnLN2hA-G90qP0xYKzTA"
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, parse_mode=None)
@@ -181,7 +174,7 @@ def restore_entities(data):
             pass
     return res
 
-def replace_placeholders(text, target_name, target_rank, target_count, target_pos, sender_name=""):
+def replace_placeholders(text, target_name, target_rank, target_count, target_pos):
     if not text:
         return text
     text = text.replace("{الاسم}", target_name)
@@ -205,7 +198,6 @@ def private_lab(m):
     uid=m.from_user.id
     txt=(m.text or m.caption or "").strip()
 
-    # اضف امر
     if txt.startswith("اضف امر"):
         tmp=txt.replace("اضف امر:","").replace("اضف امر","").strip()
         if "->" in tmp:
@@ -214,14 +206,14 @@ def private_lab(m):
             if trig and resp:
                 data={"type":"text","text":resp,"entities":save_entities(m),"file_id":None,"caption":"","caption_entities":[]}
                 pending[uid]={"t":trig,"data":data}
-                bot.reply_to(m,f"تمام ✅\n{trig}\nاكتب: ارفعه")
+                bot.reply_to(m,f"تمام\n{trig}\nاكتب: ارفعه")
                 return
         else:
             cmd=tmp
             if not cmd:
                 return
             waiting[uid]={"step":"wait_reply","command":cmd}
-            bot.reply_to(m,f"تمام - الأمر: {cmd} ²⁷\nارسل الرد اللي تبيه يرد فيه بالضبط:")
+            bot.reply_to(m,f"تمام - الامر: {cmd}\nارسل الرد اللي تبيه يرد فيه بالضبط:")
             return
 
     if uid in waiting and waiting[uid]['step']=='wait_reply':
@@ -241,7 +233,7 @@ def private_lab(m):
             data={"type":ctype,"text":m.text or m.caption or "","entities":save_entities(m),"file_id":getattr(getattr(m,ctype,None),'file_id',None),"caption":m.caption or "","caption_entities":save_entities(m)}
         pending[uid]={"t":cmd,"data":data}
         del waiting[uid]
-        bot.reply_to(m,f"تمام ✅\nالأمر: {cmd}\nالرد محفوظ - اكتب: ارفعه")
+        bot.reply_to(m,f"تمام\nالامر: {cmd}\nالرد محفوظ - اكتب: ارفعه")
         return
 
     if txt in ["ارفعه","احفظه"]:
@@ -252,7 +244,7 @@ def private_lab(m):
         custom[t]=data
         save_custom()
         del pending[uid]
-        bot.reply_to(m,f"✅ حفظت\n{t}\nالحين يرد نفس الرد اللي عطيته بالضبط")
+        bot.reply_to(m,f"حفظت {t}\nالحين يرد نفس الرد اللي عطيته بالضبط")
         return
 
     if txt.startswith("احذف امر"):
@@ -260,16 +252,16 @@ def private_lab(m):
         if cmd in custom:
             del custom[cmd]
             save_custom()
-            bot.reply_to(m,f"✅ حذفت {cmd}")
+            bot.reply_to(m,f"حذفت {cmd}")
         else:
-            bot.reply_to(m,f"❌ {cmd} مو موجود")
+            bot.reply_to(m,f"{cmd} مو موجود")
         return
 
     if txt in ["اوامري","اوامر","قائمتي"]:
         if not custom:
             bot.reply_to(m,"ما فيه اوامر")
             return
-        txt_list="📋 اوامرك:\n"
+        txt_list="اوامرك:\n"
         for k in custom.keys():
             txt_list+=f"• {k}\n"
         bot.reply_to(m,txt_list)
@@ -277,7 +269,7 @@ def private_lab(m):
 
     if txt in ["الغاء","الغه"]:
         waiting.pop(uid,None); pending.pop(uid,None)
-        bot.reply_to(m,"❌ الغاء")
+        bot.reply_to(m,"الغاء")
         return
 
     if txt in ["/start","start"]:
@@ -298,14 +290,13 @@ def groups(m):
     except:
         pass
 
-    # رفع
     if text.startswith("رفع ") and m.reply_to_message:
         rank_name=normalize_rank(text.replace("رفع ","").strip())
         if rank_name in RANK_ORDER:
             target_id=m.reply_to_message.from_user.id
             target_name=m.reply_to_message.from_user.first_name or "الشخص"
             if get_level(user_id,chat_id) <= RANK_ORDER.get(rank_name,0) and user_id!=OWNER_BOT_ID:
-                bot.reply_to(m,f"❌ ما تقدر ترفع {rank_name}")
+                bot.reply_to(m,f"ما تقدر ترفع {rank_name}")
                 return
             cs=str(chat_id); us=str(target_id)
             if cs not in user_ranks:
@@ -313,7 +304,7 @@ def groups(m):
             user_ranks[cs][us]=rank_name
             save_ranks()
             cnt,pos=get_stats(chat_id,target_id)
-            bot.send_message(chat_id,f"🎖️ {rank_name} ← تم رفع {target_name} إلى\n\n≡ رتبته هي ← {rank_name} 🎖️\n≡ رسائله بالتفاعل ← {cnt}\n≡ ترتيبه بالمتفاعلين ← {pos}\n-",reply_to_message_id=m.message_id)
+            bot.send_message(chat_id,f"تم رفع {target_name} الى {rank_name}\n\nرتبته هي ← {rank_name}\nرسائله ← {cnt}\nترتيبه ← {pos}",reply_to_message_id=m.message_id)
             return
 
     if text.startswith("تنزيل ") and m.reply_to_message:
@@ -323,33 +314,29 @@ def groups(m):
         if cs in user_ranks and us in user_ranks[cs]:
             del user_ranks[cs][us]
             save_ranks()
-            bot.send_message(chat_id,f"✅ تم تنزيل {target_name}",reply_to_message_id=m.message_id)
+            bot.send_message(chat_id,f"تم تنزيل {target_name}",reply_to_message_id=m.message_id)
         return
 
-    # رتبتي - نظام اساسي اذا ما اضفت له امر مخصص
     if text in ["رتبتي","رتبتي ²⁷"] and "رتبتي" not in custom:
         rank=get_rank(user_id,chat_id)
         cnt,pos=get_stats(chat_id,user_id)
-        bot.reply_to(m,f"≡ رتبتك هي ← {rank} 🎖️\n\n≡ رسائلك بالتفاعل ← {cnt}\n≡ ترتيبك بالمتفاعلين ← {pos}\n-")
+        bot.reply_to(m,f"رتبتك هي ← {rank}\nرسائلك ← {cnt}\nترتيبك ← {pos}")
         return
 
-    # رتبته - نظام اساسي اذا ما اضفت له امر مخصص
     if text in ["رتبته","رتبته ²⁷","رتبه","رتبة"] and "رتبته" not in custom and "رتبه" not in custom:
         if not m.reply_to_message:
-            bot.reply_to(m,"❌ سوي ريبلاي على الشخص واكتب: رتبته")
+            bot.reply_to(m,"سوي ريبلاي على الشخص واكتب: رتبته")
             return
         target=m.reply_to_message.from_user
         target_id=target.id
         target_name=target.first_name or "الشخص"
         rank=get_rank(target_id,chat_id)
         cnt,pos=get_stats(chat_id,target_id)
-        bot.reply_to(m,f"≡ رتبة {target_name} هي ← {rank} 🎖️\n\n≡ رسائله بالتفاعل ← {cnt}\n≡ ترتيبه بالمتفاعلين ← {pos}\n-")
+        bot.reply_to(m,f"رتبة {target_name} هي ← {rank}\nرسائله ← {cnt}\nترتيبه ← {pos}")
         return
 
-    # الاوامر المخصصة - يرد نفس الرد اللي عطيته في الخاص بالضبط
     if text in custom:
         data=custom[text]
-        # اذا الامر رتبته وبالريبلاي - يبدل المتغيرات
         target_name = first_name
         target_rank = get_rank(user_id,chat_id)
         target_count, target_pos = get_stats(chat_id,user_id)
@@ -365,16 +352,15 @@ def groups(m):
                 ctype=data.get("type","text")
                 if ctype=="text":
                     raw_text = data.get("text","")
-                    # يبدل المتغيرات اذا فيها {الرتبة} الخ
-                    final_text = replace_placeholders(raw_text, target_name, target_rank, target_count, target_pos, first_name)
+                    final_text = replace_placeholders(raw_text, target_name, target_rank, target_count, target_pos)
                     ents=restore_entities(data.get("entities",[]))
-                    if ents and "{" not in raw_text:  # اذا ما فيه متغيرات يحتفظ بالستايل
+                    if ents and "{" not in raw_text:
                         bot.send_message(chat_id, final_text, entities=ents, reply_to_message_id=m.message_id)
                     else:
                         bot.send_message(chat_id, final_text, reply_to_message_id=m.message_id)
                 elif ctype=="photo":
                     cap = data.get("caption","")
-                    final_cap = replace_placeholders(cap, target_name, target_rank, target_count, target_pos, first_name)
+                    final_cap = replace_placeholders(cap, target_name, target_rank, target_count, target_pos)
                     ents=restore_entities(data.get("caption_entities",[]))
                     if ents and "{" not in cap:
                         bot.send_photo(chat_id, data["file_id"], caption=final_cap, caption_entities=ents, reply_to_message_id=m.message_id)
@@ -384,26 +370,26 @@ def groups(m):
                     bot.send_sticker(chat_id, data["file_id"], reply_to_message_id=m.message_id)
                 elif ctype=="animation":
                     cap = data.get("caption","")
-                    final_cap = replace_placeholders(cap, target_name, target_rank, target_count, target_pos, first_name)
+                    final_cap = replace_placeholders(cap, target_name, target_rank, target_count, target_pos)
                     bot.send_animation(chat_id, data["file_id"], caption=final_cap, reply_to_message_id=m.message_id)
                 elif ctype=="video":
                     cap = data.get("caption","")
-                    final_cap = replace_placeholders(cap, target_name, target_rank, target_count, target_pos, first_name)
+                    final_cap = replace_placeholders(cap, target_name, target_rank, target_count, target_pos)
                     bot.send_video(chat_id, data["file_id"], caption=final_cap, reply_to_message_id=m.message_id)
                 else:
                     raw_text = data.get("text","") or data.get("caption","")
-                    final_text = replace_placeholders(raw_text, target_name, target_rank, target_count, target_pos, first_name)
+                    final_text = replace_placeholders(raw_text, target_name, target_rank, target_count, target_pos)
                     bot.reply_to(m, final_text)
             except Exception as e:
                 print(f"custom error: {e}")
                 raw_text = data.get("text","") or data.get("caption","")
-                final_text = replace_placeholders(raw_text, target_name, target_rank, target_count, target_pos, first_name)
+                final_text = replace_placeholders(raw_text, target_name, target_rank, target_count, target_pos)
                 bot.reply_to(m, final_text)
         else:
             bot.reply_to(m, str(data))
         return
 
-print("READY - EXACT SAME REPLY AS PRIVATE")
+print("READY - EXACT SAME REPLY AS PRIVATE - FIXED SYNTAX")
 
 while True:
     try:
@@ -419,5 +405,5 @@ while True:
                 pass
             time.sleep(5)
         else:
-            print(f"❌ {e}")
+            print(f"{e}")
             time.sleep(5)
