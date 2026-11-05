@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# FIX 409 CONFLICT - يحذف الويب هوك ويحل مشكلة مكانين
+# الملف النهائي - ايديك 829238313 + التوكن + اضف امر ورد + حل 409
 
 import os
 from flask import Flask
@@ -8,34 +8,33 @@ import threading
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
-    return "OK - 409 FIXED", 200
+    return "OK - 829238313 READY", 200
 @flask_app.route('/health')
 def health():
     return "OK", 200
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
+    print(f"Flask on {port}")
     flask_app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 threading.Thread(target=run_flask, daemon=True).start()
 
-import telebot, json, time, re, requests
+import telebot, json, time, requests
 
 BOT_TOKEN = "8769832522:AAF1yu7T8C-DQEfz6ggzvidtKrs_1SUi7Gk"
-bot = telebot.TeleBot(BOT_TOKEN, threaded=False)  # threaded=False يحل Conflict
-OWNER_BOT_ID = 123456789
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
+OWNER_BOT_ID = 829238313  # ايديك - جاهز
 
-print("=== حل مشكلة 409 Conflict ===")
+print(f"=== READY ID {OWNER_BOT_ID} ===")
 
-# 1. احذف الويب هوك + احذف التحديثات المعلقة
 try:
     print("🔧 حذف Webhook...")
     bot.remove_webhook()
     time.sleep(1)
-    # حذف مباشر عبر API
     requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=True", timeout=10)
-    print("✅ Webhook تم حذفه + drop_pending_updates=True")
-    time.sleep(2)
+    print("✅ Webhook محذوف")
+    time.sleep(1)
 except Exception as e:
-    print(f"Webhook error (عادي): {e}")
+    print(f"Webhook: {e}")
 
 custom = {}
 FILE = 'custom_commands.json'
@@ -53,11 +52,19 @@ pending = {}
 
 def format_reply(template, m):
     name="الشخص"
+    username=""
     if m.reply_to_message:
-        name=m.reply_to_message.from_user.first_name or "الشخص"
+        u=m.reply_to_message.from_user
+        name=u.first_name or "الشخص"
+        username=f"@{u.username}" if u.username else name
     else:
-        name=m.from_user.first_name or "الشخص"
-    return template.replace("{الاسم}",name).replace("{فلان}",name).replace("{name}",name)
+        u=m.from_user
+        name=u.first_name or "الشخص"
+        username=f"@{u.username}" if u.username else name
+    res=template
+    res=res.replace("{الاسم}",name).replace("{فلان}",name).replace("{name}",name)
+    res=res.replace("{المعرف}",username).replace("{username}",username)
+    return res
 
 @bot.message_handler(chat_types=['private'], func=lambda m: m.from_user.id == OWNER_BOT_ID)
 def private_lab(m):
@@ -71,7 +78,7 @@ def private_lab(m):
         del waiting[uid]
         bot.reply_to(m, f"تمام ✅\nالأمر: {cmd}\nالرد: {reply_text}\n\nتجربة:")
         bot.send_message(m.chat.id, format_reply(reply_text, m))
-        bot.send_message(m.chat.id, "اكتب: ارفعه")
+        bot.send_message(m.chat.id, "عجبك؟ اكتب: ارفعه\nما عجبك؟ الغاء")
         return
 
     if text.startswith("اضف امر:") and "->" not in text:
@@ -80,10 +87,10 @@ def private_lab(m):
             bot.reply_to(m, "اكتب: اضف امر: تقييد")
             return
         waiting[uid] = {"step": "wait_reply", "command": cmd}
-        bot.reply_to(m, f"تمام - الأمر: {cmd}\n\nالحين ارسل وش تبي البوت يرد؟")
+        bot.reply_to(m, f"تمام - الأمر: {cmd}\n\nالحين ارسل لي وش تبي البوت يرد؟\nمثال: تم تقييددد {cmd} 🔒")
         return
 
-    if (text.startswith("اضف امر:") or text.startswith("جرب امر:")) and "->" in text:
+    if (text.startswith("اضف امر:") or text.startswith("جرب امر:") or text.startswith("اضف:") or text.startswith("جرب:")) and "->" in text:
         tmp = text
         for p in ["اضف امر:","جرب امر:","اضف:","جرب:"]:
             tmp = tmp.replace(p,"")
@@ -99,11 +106,11 @@ def private_lab(m):
 
     if text in ["ارفعه","ارفعه للسيرفر","احفظه"]:
         if uid not in pending:
-            bot.reply_to(m, "ما فيه امر - اضف امر: تقييد")
+            bot.reply_to(m, "ما فيه امر - اكتب: اضف امر: تقييد")
             return
         t=pending[uid]["t"]; r=pending[uid]["r"]
         custom[t]=r; save_custom(); del pending[uid]
-        bot.reply_to(m, f"✅ تم حفظه!\n{t} -> {r}\nيشتغل في كل القروبات 🔥")
+        bot.reply_to(m, f"✅ تم حفظه!\n\nالأمر: {t}\nالرد: {r}\n\nيشتغل في كل القروبات 🔥")
         return
 
     if text in ["الغاء","الغه"]:
@@ -112,11 +119,11 @@ def private_lab(m):
         bot.reply_to(m, "❌ الغاء")
         return
 
-    if text in ["اوامري"]:
+    if text in ["اوامري","قائمة اوامري","اوامري المرفوعه"]:
         if not custom:
-            bot.reply_to(m, "ما اضفت شي")
+            bot.reply_to(m, "ما اضفت شي بعد")
             return
-        txt="📋 اوامرك:\n\n"
+        txt=f"📋 اوامرك - ID {uid}:\n\n"
         for k,v in custom.items():
             txt+=f"• {k} -> {v}\n"
         bot.reply_to(m, txt)
@@ -127,6 +134,26 @@ def private_lab(m):
         if t in custom:
             del custom[t]; save_custom()
             bot.reply_to(m, f"✅ حذف {t}")
+        else:
+            bot.reply_to(m, f"ما لقيت {t}")
+        return
+
+    if text in ["/start","start"]:
+        bot.reply_to(m, f"""اهلا - ايديك {uid} ✅
+
+طريقة الاضافة (انت تعطي الامر والرد):
+
+1️⃣ اضف امر: تقييد
+[البوت يطلب الرد]
+2️⃣ تم تقييددد {{فلان}} 🔒
+3️⃣ ارفعه
+
+او بسطر واحد:
+اضف امر: تقييد -> تم تقييد {{فلان}} 🔒
+
+اوامري - عرض اللي اضفته
+احذف امر: تقييد - حذف
+""")
         return
 
 @bot.message_handler(content_types=['text'])
@@ -138,21 +165,20 @@ def groups(m):
         bot.reply_to(m, format_reply(custom[text], m))
 
 print("="*50)
-print("✅ FIXED 409 - threaded=False + remove_webhook")
+print(f"✅ READY - ID {OWNER_BOT_ID}")
+print(f"✅ TOKEN {BOT_TOKEN[:20]}...")
 print("✅ انت تعطي الامر + تعطي الرد")
+print("✅ 409 FIXED")
 print("="*50)
 
-# Polling مع حماية 409
 while True:
     try:
-        print("✅ Starting polling with 409 fix...")
-        # infinity_polling بدون threading
+        print("✅ Starting polling...")
         bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True, none_stop=True)
     except Exception as e:
-        err = str(e)
+        err=str(e)
         if "409" in err or "Conflict" in err:
-            print(f"⚠️ 409 Conflict detected - انتظار 10 ثواني واعادة المحاولة...")
-            print("تأكد انك مو مشغل البوت في مكان ثاني (VS Code, Termux, لابتوب)")
+            print("⚠️ 409 - انتظار 10 ث...")
             time.sleep(10)
             try:
                 bot.remove_webhook()
