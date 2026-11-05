@@ -5,7 +5,7 @@ import threading
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
-    return "OK - FIX B2 BUG", 200
+    return "OK - TOP + SHAPE", 200
 @flask_app.route('/health')
 def health():
     return "OK", 200
@@ -166,6 +166,26 @@ def get_stats(cid,uid):
         pos=len(sorted_users)+1 if cnt>0 else 1
     return cnt,pos
 
+def get_top_list(cid, uid, limit=20):
+    cs=str(cid)
+    if cs not in top_data or not top_data[cs]:
+        return "ما فيه متفاعلين بعد"
+    sorted_users=sorted(top_data[cs].items(),key=lambda x:x[1]["count"],reverse=True)[:limit]
+    txt = "توب اكثر 20 متفاعلين بالقروب : 💬\n"
+    txt += "─────────────\n\n"
+    for i,(u_id, data) in enumerate(sorted_users,1):
+        name = data.get("name","مجهول")
+        cnt = data.get("count",0)
+        # يمنع الاسم يكون طويل
+        if len(name) > 20:
+            name = name[:20]
+        txt += f"{i}) {cnt} | {name}\n"
+    txt += "\n─────────────\n"
+    my_cnt, my_pos = get_stats(cid, uid)
+    my_name = top_data[cs].get(str(uid),{}).get("name","you")
+    txt += f"≡ you) {my_cnt} | ٢٧"
+    return txt
+
 def save_entities(msg):
     res=[]
     ents=msg.entities or msg.caption_entities or []
@@ -195,17 +215,11 @@ def restore_entities(data):
 def smart_replace(text, name, rank_raw, rank_badge, count, pos):
     if not text:
         return text
-    
-    # 1. مع اقواس {الرتبة} {التفاعل} {الترتيب} {الاسم}
-    text = text.replace("{الرتبة}", rank_badge).replace("{رتبته}", rank_badge).replace("{رتبتي}", rank_badge).replace("{rank}", rank_badge)
-    text = text.replace("{الرتبة_بدون_شارة}", rank_raw)
+    text = text.replace("{الرتبة}", rank_badge).replace("{رتبته}", rank_badge).replace("{رتبتي}", rank_badge)
+    text = text.replace("{الرتبة_بدون}", rank_raw)
     text = text.replace("{التفاعل}", str(count)).replace("{تفاعلي}", str(count)).replace("{تفاعله}", str(count))
     text = text.replace("{الترتيب}", str(pos)).replace("{ترتيبي}", str(pos)).replace("{الرتيب}", str(pos))
-    text = text.replace("{الاسم}", name).replace("{فلان}", name)
-    
-    # 2. بدون اقواس لكن فقط بعد ←  ↤  ←
-    # هذا يصلح مشكلة ب2 - ما نستبدل بالتفاعل اللي داخل الكلمة
-    # نستبدل فقط ← الرتبة , ← التفاعل , ← الرتيب
+    text = text.replace("{الاسم}", name).replace("{فلان}", name).replace("{المستخدم}", name)
     text = re.sub(r'←\s*الرتبة\b', f'← {rank_badge}', text)
     text = re.sub(r'↤\s*الرتبة\b', f'↤ {rank_badge}', text)
     text = re.sub(r'←\s*التفاعل\b', f'← {count}', text)
@@ -213,9 +227,8 @@ def smart_replace(text, name, rank_raw, rank_badge, count, pos):
     text = re.sub(r'←\s*الرتيب\b', f'← {pos}', text)
     text = re.sub(r'↤\s*الرتيب\b', f'↤ {pos}', text)
     text = re.sub(r'←\s*الترتيب\b', f'← {pos}', text)
-    text = re.sub(r'↤\s*الترتيب\b', f'↤ {pos}', text)
-    text = re.sub(r'←\s*الاسم\b', f'← {name}', text)
-    
+    text = text.replace("「 」", f"「 {name} 」").replace("「」", f"「 {name} 」")
+    text = re.sub(r'「\s*ذا\s*」', f'「 {name} 」', text)
     return text
 
 waiting={}
@@ -260,7 +273,7 @@ def private_lab(m):
             bot.reply_to(m, f"✅ فتح {cmd}")
         return
 
-    if txt.startswith("اضف رسالة خروج المطور") or txt.startswith("اضف امر خروج المطور") or txt in ["اضف رسالة المطور طلع"]:
+    if txt.startswith("اضف رسالة خروج المطور"):
         waiting[uid]={"step":"wait_reply","command":"leave_dev", "type":"leave_msg"}
         bot.reply_to(m, "تمام - ارسل رسالة خروج المطور:")
         return
@@ -289,7 +302,12 @@ def private_lab(m):
             if not cmd:
                 return
             waiting[uid]={"step":"wait_reply","command":cmd, "type":"normal"}
-            bot.reply_to(m,f"تمام - الامر: {cmd}\nارسل الشكل - استخدم:\n{{الرتبة}} {{التفاعل}} {{الترتيب}} {{الاسم}}\nاو\n← الرتبة  ← التفاعل  ← الرتيب")
+            if cmd.startswith("رفع "):
+                bot.reply_to(m,f"تمام - الامر: {cmd} ²⁷\n\nارسل الشكل اللي تبيه:\n{{الاسم}} - {{الرتبة}} - {{التفاعل}}")
+            elif cmd in ["المتفاعلين","مت","توب"]:
+                bot.reply_to(m,f"تمام - الامر: {cmd}\n\nهذا امر المتفاعلين - يطلع توب 20 تلقائيا\n\nاذا تبي تغير شكله - ارسل الهيدر اللي تبيه، مثلا:\nتوب اكثر 20 متفاعلين بالقروب : 💬\n─────────────\n\n(البوت بيكمل القائمة تلقائيا)")
+            else:
+                bot.reply_to(m,f"تمام - الامر: {cmd}\nارسل الشكل - استخدم {{الرتبة}} {{التفاعل}} {{الترتيب}} {{الاسم}}")
             return
 
     if uid in waiting and waiting[uid]['step']=='wait_reply' and waiting[uid].get('type')=='normal':
@@ -316,8 +334,8 @@ def private_lab(m):
         save_custom()
         del pending[uid]
         sample_text = data.get("text","") or data.get("caption","")
-        preview = smart_replace(sample_text, "محسن", "MY", "MY 🎖️", 422, 7)
-        bot.reply_to(m,f"✅ حفظت {t}\n\nالشكل اللي عطيته:\n{sample_text}\n\nبيطلع كذا:\n{preview}\n\n✅ يحدث تلقائيا ✅")
+        preview = smart_replace(sample_text, "نايف", "MY", "MY 🎖️", 422, 7)
+        bot.reply_to(m,f"✅ حفظت {t}\n\nالشكل:\n{sample_text}\n\nمثال:\n{preview}")
         return
 
     if txt.startswith("احذف امر"):
@@ -374,6 +392,27 @@ def groups(m):
     except:
         pass
 
+    # المتفاعلين - توب 20 - قبل كل شي
+    if text in ["المتفاعلين","مت","توب","متفاعلين","المتفاعلين ²⁷","٢٧ مت","توب المتفاعلين","توب اكثر 20 متفاعلين بالقروب","توب متفاعلين"]:
+        if text in locked:
+            req = locked[text]
+            if get_level(user_id,chat_id) < RANK_ORDER.get(req,0) and user_id!=OWNER_BOT_ID:
+                bot.reply_to(m,f"❌ امر {text} مقفول لرتبة {req} فقط")
+                return
+        
+        # اذا فيه شكل مخصص للمتفاعلين - نستخدمه كهيدر
+        if text in custom:
+            data=custom[text]
+            header = data.get("text","") or data.get("caption","")
+            top_list = get_top_list(chat_id, user_id, 20)
+            # اذا الشكل المخصص يحتوي توب - ندمجه
+            final = header + "\n\n" + top_list if "توب" not in header else top_list
+            bot.send_message(chat_id, final, reply_to_message_id=m.message_id)
+        else:
+            top_list = get_top_list(chat_id, user_id, 20)
+            bot.send_message(chat_id, top_list, reply_to_message_id=m.message_id)
+        return
+
     if text.startswith("قفل امر ") or text.startswith("قفل أمر "):
         if get_level(user_id,chat_id) < RANK_ORDER.get("Dev",12) and user_id!=OWNER_BOT_ID:
             bot.reply_to(m,"❌ فقط Dev")
@@ -425,7 +464,21 @@ def groups(m):
             save_ranks()
             cnt,pos=get_stats(chat_id,target_id)
             rank_badge = get_rank_with_badge(target_id, chat_id)
-            bot.send_message(chat_id,f"🎖️ تم رفع {target_name} الى {rank_badge}\n\n≡ رتبته هي ← {rank_badge}\n≡ رسائله بالتفاعل ← {cnt}\n≡ ترتيبه بالمتفاعلين ← {pos}\n-",reply_to_message_id=m.message_id)
+            rank_raw = rank_name
+            full_cmd = f"رفع {rank_name}"
+            if full_cmd in custom:
+                data=custom[full_cmd]
+                raw = data.get("text","") or data.get("caption","")
+                final = smart_replace(raw, target_name, rank_raw, rank_badge, cnt, pos)
+                try:
+                    if data.get("type")=="text":
+                        bot.send_message(chat_id, final, entities=restore_entities(data.get("entities",[])), reply_to_message_id=m.message_id)
+                    else:
+                        bot.send_message(chat_id, final, reply_to_message_id=m.message_id)
+                except:
+                    bot.send_message(chat_id, final, reply_to_message_id=m.message_id)
+            else:
+                bot.send_message(chat_id,f"≡ المستخدم ذا 「 {target_name} 」\n≡ تم رفعه الى {rank_badge}\n\n≡ رتبته هي ← {rank_badge}\n≡ رسائله بالتفاعل ← {cnt}\n≡ ترتيبه بالمتفاعلين ← {pos}\n-",reply_to_message_id=m.message_id)
             return
 
     if text.startswith("تنزيل ") and m.reply_to_message:
@@ -514,7 +567,7 @@ def groups(m):
                 bot.reply_to(m, final_text)
         return
 
-print(f"READY - FIX B2 - BADGE MY+ - LEAVE MSG")
+print(f"READY - TOP 20 + RAF3 SHAPE + BADGE MY+")
 
 while True:
     try:
