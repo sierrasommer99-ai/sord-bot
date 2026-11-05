@@ -5,7 +5,7 @@ import threading
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
-    return "OK - FIX PLACEHOLDERS", 200
+    return "OK - FIX B2 BUG", 200
 @flask_app.route('/health')
 def health():
     return "OK", 200
@@ -15,7 +15,7 @@ def run_flask():
 threading.Thread(target=run_flask, daemon=True).start()
 
 import telebot, json, time, requests, re
-from telebot.types import MessageEntity, User
+from telebot.types import MessageEntity
 
 BOT_TOKEN = "8769832522:AAF-qXZfMQ75Z1XfnLN2hA-G90qP0xYKzTA"
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, parse_mode=None)
@@ -39,14 +39,16 @@ FILE = get_path('custom_commands.json')
 LOCK_FILE = get_path('locked_commands.json')
 RANKS_FILE = get_path('user_ranks.json')
 TOP_FILE = get_path('top.json')
+SETTINGS_FILE = get_path('settings.json')
 
 custom = {}
 locked = {}
 user_ranks = {}
 top_data = {}
+settings = {}
 
 def load_all():
-    global custom, locked, user_ranks, top_data
+    global custom, locked, user_ranks, top_data, settings
     try:
         with open(FILE,'r',encoding='utf-8') as f:
             d=json.load(f)
@@ -77,6 +79,13 @@ def load_all():
                 top_data.update(d)
     except:
         pass
+    try:
+        with open(SETTINGS_FILE,'r',encoding='utf-8') as f:
+            d=json.load(f)
+            settings.clear()
+            settings.update(d)
+    except:
+        settings.update({"leave_dev_msg": "≡ المطور غادر المجموعه 💔\n≡ {الاسم} ← {الرتبة}\n-"})
 
 load_all()
 
@@ -92,6 +101,9 @@ def save_ranks():
 def save_top():
     with open(TOP_FILE,'w',encoding='utf-8') as f:
         json.dump(top_data,f,ensure_ascii=False,indent=2)
+def save_settings():
+    with open(SETTINGS_FILE,'w',encoding='utf-8') as f:
+        json.dump(settings,f,ensure_ascii=False,indent=2)
 
 RANK_ORDER = {"مميز":1,"ادمن":2,"مدير":3,"منشئ":4,"منشئ اساسي":5,"مالك":6,"مالك اساسي":7,"مالك المجموعه":8,"M":9,"MY":10,"Dev2":11,"Dev":12}
 
@@ -180,72 +192,30 @@ def restore_entities(data):
             pass
     return res
 
-def replace_placeholders(text, target_name, target_rank_raw, target_rank_badge, target_count, target_pos):
-    if not text:
-        return text
-    # مع اقواس وبدون اقواس - يفهم الاثنين
-    # {الرتبة} او الرتبة
-    # {التفاعل} او التفاعل
-    # {الترتيب} او الترتيب او الرتيب
-    # {الاسم} او الاسم
-    
-    # اولا مع اقواس
-    text = text.replace("{الرتبة}", target_rank_badge).replace("{رتبته}", target_rank_badge).replace("{رتبتي}", target_rank_badge)
-    text = text.replace("{التفاعل}", str(target_count)).replace("{تفاعلي}", str(target_count)).replace("{تفاعله}", str(target_count))
-    text = text.replace("{الترتيب}", str(target_pos)).replace("{ترتيبي}", str(target_pos)).replace("{الرتيب}", str(target_pos)).replace("{الترتيب}", str(target_pos))
-    text = text.replace("{الاسم}", target_name).replace("{فلان}", target_name).replace("{المعرف}", target_name)
-    
-    # بدون اقواس - فقط اذا كلمة مستقلة بعد ← او ≡ او مسافة
-    # نستخدم regex عشان ما نخرب النص
-    # الرتبة
-    text = re.sub(r'←\s*الرتبة\b', f'← {target_rank_badge}', text)
-    text = re.sub(r'≡\s*الرتبة\b', f'≡ {target_rank_badge}', text)
-    # لو كتبت وحدها في السطر
-    if text.strip() == "الرتبة":
-        text = target_rank_badge
-    # التفاعل
-    text = re.sub(r'←\s*التفاعل\b', f'← {target_count}', text)
-    # الرتيب / الترتيب
-    text = re.sub(r'←\s*الرتيب\b', f'← {target_pos}', text)
-    text = re.sub(r'←\s*الترتيب\b', f'← {target_pos}', text)
-    text = re.sub(r'←\s*الرتيب\b', f'← {target_pos}', text)
-    
-    # اذا كتب ← الرتبة في الاخر
-    # نستبدل ايضا اذا موجودة كقيمة مستقلة
-    # مثال: "رتبتك هي ← الرتبة" -> "رتبتك هي ← MY 🎖️"
-    if "الرتبة" in text and target_rank_badge not in text:
-        # فقط لو ما فيه {الرتبة} اصلا وما استبدلنا
-        # نستبدل اخر ظهور لـ الرتبة اذا كان بعد ←
-        parts = text.split("←")
-        if len(parts) > 1 and "الرتبة" in parts[-1]:
-            # اذا اخر جزء فيه الرتبة
-            text = text.replace("الرتبة", target_rank_badge, 1) if "الرتبة" in text else text
-    
-    return text
-
-# تحسين: دالة ذكية تفهم الشكل
 def smart_replace(text, name, rank_raw, rank_badge, count, pos):
     if not text:
         return text
-    original = text
     
-    # اذا استخدم { } - نستخدم القديم
-    if "{" in text and "}" in text:
-        return replace_placeholders(text, name, rank_raw, rank_badge, count, pos)
+    # 1. مع اقواس {الرتبة} {التفاعل} {الترتيب} {الاسم}
+    text = text.replace("{الرتبة}", rank_badge).replace("{رتبته}", rank_badge).replace("{رتبتي}", rank_badge).replace("{rank}", rank_badge)
+    text = text.replace("{الرتبة_بدون_شارة}", rank_raw)
+    text = text.replace("{التفاعل}", str(count)).replace("{تفاعلي}", str(count)).replace("{تفاعله}", str(count))
+    text = text.replace("{الترتيب}", str(pos)).replace("{ترتيبي}", str(pos)).replace("{الرتيب}", str(pos))
+    text = text.replace("{الاسم}", name).replace("{فلان}", name)
     
-    # اذا كتب بدون اقواس مثل الصورة: "رتبتك هي ← الرتبة"
-    # نستبدل الرتبة / التفاعل / الرتيب
-    # نبحث عن النمط: ← الرتبة , ← التفاعل , ← الرتيب
-    # هذا اللي في صورتك
+    # 2. بدون اقواس لكن فقط بعد ←  ↤  ←
+    # هذا يصلح مشكلة ب2 - ما نستبدل بالتفاعل اللي داخل الكلمة
+    # نستبدل فقط ← الرتبة , ← التفاعل , ← الرتيب
+    text = re.sub(r'←\s*الرتبة\b', f'← {rank_badge}', text)
+    text = re.sub(r'↤\s*الرتبة\b', f'↤ {rank_badge}', text)
+    text = re.sub(r'←\s*التفاعل\b', f'← {count}', text)
+    text = re.sub(r'↤\s*التفاعل\b', f'↤ {count}', text)
+    text = re.sub(r'←\s*الرتيب\b', f'← {pos}', text)
+    text = re.sub(r'↤\s*الرتيب\b', f'↤ {pos}', text)
+    text = re.sub(r'←\s*الترتيب\b', f'← {pos}', text)
+    text = re.sub(r'↤\s*الترتيب\b', f'↤ {pos}', text)
+    text = re.sub(r'←\s*الاسم\b', f'← {name}', text)
     
-    # نستبدل بذكاء
-    # اذا فيه كلمة الرتبة لوحدها
-    text = text.replace("الرتبة", rank_badge)
-    text = text.replace("التفاعل", str(count))
-    text = text.replace("الرتيب", str(pos))
-    text = text.replace("الترتيب", str(pos))
-    
-    # اذا بعد الاستبدال لسه فيه كلمات عامة
     return text
 
 waiting={}
@@ -269,7 +239,7 @@ def private_lab(m):
                 bot.reply_to(m, f"≡ تم وضع امر ↤ {command_name}\n≡ لرتبة ↤ {possible_rank} 🎖️\n≡ فقط")
                 return
         waiting_rank[uid] = {"command": cmd_text}
-        bot.reply_to(m, f"≡ حسنًا عزيزي قم بإرسال الرتبة الان :\n- Dev\n- Dev2\n- MY\n- M\n- مالك المجموعه\n- مالك اساسي\n- مالك\n- منشئ اساسي\n- منشئ\n- مدير\n- ادمن\n- مميز\n≡ سيتم وضع الأمر ↤ {cmd_text} للرتبة المحددة فقط")
+        bot.reply_to(m, f"≡ حسنًا عزيزي قم بإرسال الرتبة الان")
         return
 
     if uid in waiting_rank:
@@ -290,6 +260,20 @@ def private_lab(m):
             bot.reply_to(m, f"✅ فتح {cmd}")
         return
 
+    if txt.startswith("اضف رسالة خروج المطور") or txt.startswith("اضف امر خروج المطور") or txt in ["اضف رسالة المطور طلع"]:
+        waiting[uid]={"step":"wait_reply","command":"leave_dev", "type":"leave_msg"}
+        bot.reply_to(m, "تمام - ارسل رسالة خروج المطور:")
+        return
+
+    if uid in waiting and waiting[uid].get('type') == 'leave_msg':
+        if m.content_type=='text':
+            settings["leave_dev_msg"] = m.text
+            save_settings()
+            del waiting[uid]
+            preview = smart_replace(m.text, "محسن", "Dev", "Dev 🎖️", 500, 1)
+            bot.reply_to(m, f"✅ حفظت:\n\n{preview}")
+            return
+
     if txt.startswith("اضف امر"):
         tmp=txt.replace("اضف امر:","").replace("اضف امر","").strip()
         if "->" in tmp:
@@ -298,17 +282,17 @@ def private_lab(m):
             if trig and resp:
                 data={"type":"text","text":resp,"entities":save_entities(m),"file_id":None,"caption":"","caption_entities":[]}
                 pending[uid]={"t":trig,"data":data}
-                bot.reply_to(m,f"تمام - الامر: {trig}\nالشكل:\n{resp}\n\nبيرد بنفس الشكل بس يحدث ✅\nاكتب: ارفعه")
+                bot.reply_to(m,f"تمام - الامر: {trig}\nاكتب: ارفعه")
                 return
         else:
             cmd=tmp
             if not cmd:
                 return
-            waiting[uid]={"step":"wait_reply","command":cmd}
-            bot.reply_to(m,f"تمام - الامر: {cmd} ²⁷\nارسل الشكل اللي تبيه:\n\nتقدر تستخدم:\n{{الرتبة}} او الرتبة\n{{التفاعل}} او التفاعل\n{{الترتيب}} او الرتيب\n{{الاسم}}\n\nمثال:\n≡ رتبتك هي ← {{الرتبة}}\n≡ رسائلك ← {{التفاعل}}\n≡ ترتيبك ← {{الترتيب}}")
+            waiting[uid]={"step":"wait_reply","command":cmd, "type":"normal"}
+            bot.reply_to(m,f"تمام - الامر: {cmd}\nارسل الشكل - استخدم:\n{{الرتبة}} {{التفاعل}} {{الترتيب}} {{الاسم}}\nاو\n← الرتبة  ← التفاعل  ← الرتيب")
             return
 
-    if uid in waiting and waiting[uid]['step']=='wait_reply':
+    if uid in waiting and waiting[uid]['step']=='wait_reply' and waiting[uid].get('type')=='normal':
         cmd=waiting[uid]['command']
         ctype=m.content_type
         if ctype=='text':
@@ -332,9 +316,8 @@ def private_lab(m):
         save_custom()
         del pending[uid]
         sample_text = data.get("text","") or data.get("caption","")
-        preview_my = smart_replace(sample_text, "محسن", "MY", "MY 🎖️", 422, 7)
-        preview_member = smart_replace(sample_text, "نايف", "مميز", "مميز", 5, 2)
-        bot.reply_to(m,f"✅ حفظت {t}\n\nالشكل اللي عطيته:\n{sample_text}\n\nلو MY وفوق (مع شارة):\n{preview_my}\n\nلو مميز (بدون شارة):\n{preview_member}\n\n✅ يحدث تلقائيا لكل شخص ✅")
+        preview = smart_replace(sample_text, "محسن", "MY", "MY 🎖️", 422, 7)
+        bot.reply_to(m,f"✅ حفظت {t}\n\nالشكل اللي عطيته:\n{sample_text}\n\nبيطلع كذا:\n{preview}\n\n✅ يحدث تلقائيا ✅")
         return
 
     if txt.startswith("احذف امر"):
@@ -358,6 +341,24 @@ def private_lab(m):
                 pass
             bot.reply_to(m,f"❌ {cmd} مو موجود")
         return
+
+@bot.message_handler(content_types=['left_chat_member'])
+def on_left(m):
+    try:
+        left_user = m.left_chat_member
+        if not left_user:
+            return
+        if left_user.id == OWNER_BOT_ID:
+            chat_id = m.chat.id
+            name = left_user.first_name or "المطور"
+            rank_raw = get_rank(left_user.id, chat_id)
+            rank_badge = get_rank_with_badge(left_user.id, chat_id)
+            cnt, pos = get_stats(chat_id, left_user.id)
+            raw_msg = settings.get("leave_dev_msg", "≡ المطور غادر المجموعه 💔\n≡ {الاسم} ← {الرتبة}\n-")
+            final_msg = smart_replace(raw_msg, name, rank_raw, rank_badge, cnt, pos)
+            bot.send_message(chat_id, final_msg)
+    except Exception as e:
+        print(f"leave error: {e}")
 
 @bot.message_handler(content_types=['text','photo','sticker','animation','video','voice','document','audio'])
 def groups(m):
@@ -388,7 +389,7 @@ def groups(m):
                 bot.reply_to(m, f"≡ تم وضع امر ↤ {command_name}\n≡ لرتبة ↤ {possible_rank} 🎖️\n≡ فقط")
                 return
         waiting_rank[chat_id] = {"command": cmd_text, "user": user_id}
-        bot.reply_to(m, f"≡ حسنًا عزيزي قم بإرسال الرتبة الان :\n- Dev\n- Dev2\n- MY\n- M\n- مالك المجموعه\n- مالك اساسي\n- مالك\n- منشئ اساسي\n- منشئ\n- مدير\n- ادمن\n- مميز\n≡ سيتم وضع الأمر ↤ {cmd_text} للرتبة المحددة فقط")
+        bot.reply_to(m, f"≡ حسنًا عزيزي قم بإرسال الرتبة الان")
         return
 
     if chat_id in waiting_rank and waiting_rank[chat_id]["user"] == user_id:
@@ -513,7 +514,7 @@ def groups(m):
                 bot.reply_to(m, final_text)
         return
 
-print(f"READY - FIX PLACEHOLDERS - BADGE MY+")
+print(f"READY - FIX B2 - BADGE MY+ - LEAVE MSG")
 
 while True:
     try:
