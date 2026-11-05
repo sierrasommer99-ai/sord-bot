@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# تحكم بالاقفال من خاص البوت + قفل يمنع اللي رتبته اقل
+# يحدث كل الاوامر تلقائيا - كل شي اوتو
 # Token: 8769832522:AAF-qXZfMQ75Z1XfnLN2hA-G90qP0xYKzTA
 # ID: 829238313
 # خاصك: https://t.me/afiwd
@@ -11,7 +11,7 @@ import threading
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
-    return "OK - PRIVATE LOCK CONTROL", 200
+    return "OK - AUTO UPDATE ALL", 200
 @flask_app.route('/health')
 def health():
     return "OK", 200
@@ -27,7 +27,7 @@ BOT_TOKEN = "8769832522:AAF-qXZfMQ75Z1XfnLN2hA-G90qP0xYKzTA"
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, parse_mode=None)
 OWNER_BOT_ID = 829238313
 
-print(f"PRIVATE LOCK CONTROL - {OWNER_BOT_ID}")
+print(f"AUTO UPDATE ALL - {OWNER_BOT_ID}")
 
 try:
     bot.remove_webhook()
@@ -40,36 +40,45 @@ FILE = 'custom_commands.json'
 OWNER_FILE = 'owner_info.json'
 LOCK_FILE = 'locked_commands.json'
 RANKS_FILE = 'user_ranks.json'
+TOP_FILE = 'top.json'
+
+# تحميل اولي
+def load_all():
+    global custom, owner_info, locked, user_ranks, top_data
+    try:
+        with open(FILE,'r',encoding='utf-8') as f:
+            custom = json.load(f)
+    except:
+        custom = {}
+    try:
+        with open(OWNER_FILE,'r',encoding='utf-8') as f:
+            owner_info = json.load(f)
+            owner_info['private'] = 'afiwd'
+            owner_info['username'] = 'afiwd'
+    except:
+        owner_info = {"name": "محسن", "username": "afiwd", "bio": "https://t.me/afiwd", "group": "- darkness", "private": "afiwd", "photo": None}
+    try:
+        with open(LOCK_FILE,'r',encoding='utf-8') as f:
+            locked = json.load(f)
+    except:
+        locked = {}
+    try:
+        with open(RANKS_FILE,'r',encoding='utf-8') as f:
+            user_ranks = json.load(f)
+    except:
+        user_ranks = {}
+    try:
+        with open(TOP_FILE,'r',encoding='utf-8') as f:
+            top_data = json.load(f)
+    except:
+        top_data = {}
 
 custom = {}
-try:
-    with open(FILE,'r',encoding='utf-8') as f:
-        custom = json.load(f)
-except:
-    custom = {}
-
 owner_info = {}
-try:
-    with open(OWNER_FILE,'r',encoding='utf-8') as f:
-        owner_info = json.load(f)
-        owner_info['private'] = 'afiwd'
-        owner_info['username'] = 'afiwd'
-except:
-    owner_info = {"name": "محسن", "username": "afiwd", "bio": "https://t.me/afiwd", "group": "- darkness", "private": "afiwd", "photo": None}
-
 locked = {}
-try:
-    with open(LOCK_FILE,'r',encoding='utf-8') as f:
-        locked = json.load(f)
-except:
-    locked = {}
-
 user_ranks = {}
-try:
-    with open(RANKS_FILE,'r',encoding='utf-8') as f:
-        user_ranks = json.load(f)
-except:
-    user_ranks = {}
+top_data = {}
+load_all()
 
 def save_custom():
     with open(FILE,'w',encoding='utf-8') as f:
@@ -83,6 +92,58 @@ def save_locked():
 def save_ranks():
     with open(RANKS_FILE,'w',encoding='utf-8') as f:
         json.dump(user_ranks,f,ensure_ascii=False,indent=2)
+def save_top():
+    with open(TOP_FILE,'w',encoding='utf-8') as f:
+        json.dump(top_data,f,ensure_ascii=False,indent=2)
+
+# ثريد يحدث كل الملفات تلقائيا كل 15 ثانية
+def auto_reload_thread():
+    while True:
+        try:
+            time.sleep(15)
+            # اعادة تحميل بدون مسح
+            try:
+                with open(FILE,'r',encoding='utf-8') as f:
+                    new_custom = json.load(f)
+                    custom.clear()
+                    custom.update(new_custom)
+            except:
+                pass
+            try:
+                with open(RANKS_FILE,'r',encoding='utf-8') as f:
+                    new_ranks = json.load(f)
+                    user_ranks.clear()
+                    user_ranks.update(new_ranks)
+            except:
+                pass
+            try:
+                with open(LOCK_FILE,'r',encoding='utf-8') as f:
+                    new_locked = json.load(f)
+                    locked.clear()
+                    locked.update(new_locked)
+            except:
+                pass
+            try:
+                with open(TOP_FILE,'r',encoding='utf-8') as f:
+                    new_top = json.load(f)
+                    top_data.clear()
+                    top_data.update(new_top)
+            except:
+                pass
+            try:
+                with open(OWNER_FILE,'r',encoding='utf-8') as f:
+                    new_owner = json.load(f)
+                    owner_info.clear()
+                    owner_info.update(new_owner)
+                    owner_info['private'] = 'afiwd'
+                    owner_info['username'] = 'afiwd'
+            except:
+                pass
+            # print("🔄 auto reload done")
+        except Exception as e:
+            print(f"auto reload error: {e}")
+
+threading.Thread(target=auto_reload_thread, daemon=True).start()
 
 RANK_ORDER = {
     "مميز": 1,
@@ -99,28 +160,19 @@ RANK_ORDER = {
     "Dev": 12
 }
 
-RANK_ALIASES = {
-    "dev": "Dev",
-    "dev2": "Dev2",
-    "my": "MY",
-    "m": "M",
-    "مالك المجموعه": "مالك المجموعه",
-    "مالك المجموعة": "مالك المجموعه",
-    "مالك اساسي": "مالك اساسي",
-    "منشئ اساسي": "منشئ اساسي",
-    "منشئ": "منشئ",
-    "مدير": "مدير",
-    "ادمن": "ادمن",
-    "مميز": "مميز"
-}
-
 def normalize_rank(text):
     text = text.strip()
-    for key, val in RANK_ALIASES.items():
-        if text.lower() == key.lower() or text == val:
-            return val
+    aliases = {
+        "dev": "Dev", "dev2": "Dev2", "my": "MY", "m": "M",
+        "مالك المجموعة": "مالك المجموعه", "مالك المجموعه": "مالك المجموعه",
+        "مالك اساسي": "مالك اساسي", "منشئ اساسي": "منشئ اساسي",
+        "منشئ": "منشئ", "مدير": "مدير", "ادمن": "ادمن", "مميز": "مميز"
+    }
+    low = text.lower()
+    if low in aliases:
+        return aliases[low]
     for rank in RANK_ORDER:
-        if text in rank or rank in text:
+        if text == rank or text in rank or rank in text:
             return rank
     return text
 
@@ -130,8 +182,7 @@ def get_user_rank_level(user_id, chat_id):
     chat_id_str = str(chat_id)
     user_id_str = str(user_id)
     if chat_id_str in user_ranks and user_id_str in user_ranks[chat_id_str]:
-        rank_name = user_ranks[chat_id_str][user_id_str]
-        return RANK_ORDER.get(rank_name, 0)
+        return RANK_ORDER.get(user_ranks[chat_id_str][user_id_str], 0)
     return 0
 
 def get_user_rank_name(user_id, chat_id):
@@ -146,16 +197,47 @@ def get_user_rank_name(user_id, chat_id):
 def can_use_command(user_id, chat_id, command):
     if command not in locked:
         return True
-    required_rank = locked[command]
-    required_level = RANK_ORDER.get(required_rank, 0)
-    user_level = get_user_rank_level(user_id, chat_id)
-    return user_level >= required_level
+    required_level = RANK_ORDER.get(locked[command], 0)
+    return get_user_rank_level(user_id, chat_id) >= required_level
+
+def add_message_count(chat_id, user_id, first_name):
+    chat_id_str = str(chat_id)
+    user_id_str = str(user_id)
+    if chat_id_str not in top_data:
+        top_data[chat_id_str] = {}
+    if user_id_str not in top_data[chat_id_str]:
+        top_data[chat_id_str][user_id_str] = {"count": 0, "name": first_name}
+    top_data[chat_id_str][user_id_str]["count"] += 1
+    top_data[chat_id_str][user_id_str]["name"] = first_name
+    # حفظ فوري - تحديث تلقائي
+    try:
+        save_top()
+    except:
+        pass
+
+def get_user_stats(chat_id, user_id):
+    chat_id_str = str(chat_id)
+    user_id_str = str(user_id)
+    if chat_id_str not in top_data:
+        return 0, 0
+    sorted_users = sorted(top_data[chat_id_str].items(), key=lambda x: x[1]["count"], reverse=True)
+    count = top_data[chat_id_str].get(user_id_str, {}).get("count", 0)
+    rank_pos = 0
+    for idx, (uid, data) in enumerate(sorted_users, 1):
+        if uid == user_id_str:
+            rank_pos = idx
+            break
+    if rank_pos == 0:
+        rank_pos = len(sorted_users) + 1 if count == 0 else len(sorted_users) + 1
+        if count > 0 and rank_pos == 1 and len(sorted_users) == 0:
+            rank_pos = 1
+    return count, rank_pos if rank_pos != 0 else 1
 
 waiting = {}
 pending = {}
 edit_motawer = {}
 waiting_rank = {}
-waiting_rank_private = {}  # للخاص
+waiting_rank_private = {}
 
 def save_all_entities(message):
     result = []
@@ -232,12 +314,14 @@ def private_lab(m):
     uid = m.from_user.id
     text_content = (m.text or m.caption or "").strip()
 
-    # ===== تحكم بالاقفال من الخاص - الميزة الجديدة =====
-    
-    # قفل امر من الخاص: قفل امر المطور Dev
+    # تحديث تلقائي قبل كل امر
+    try:
+        load_all()
+    except:
+        pass
+
     if text_content.startswith("قفل امر ") or text_content.startswith("قفل أمر "):
         cmd_text = text_content.replace("قفل امر ","").replace("قفل أمر ","").strip()
-        # هل فيه رتبة مع الامر؟
         parts = cmd_text.split()
         if len(parts) >= 2:
             possible_rank = normalize_rank(parts[-1])
@@ -245,23 +329,12 @@ def private_lab(m):
                 command_name = " ".join(parts[:-1]).strip()
                 locked[command_name] = possible_rank
                 save_locked()
-                bot.reply_to(m, f"🔒 تم قفل امر {command_name} من الخاص ✅\n≡ لرتبة ↤ {possible_rank} 🎖️\n≡ فقط Dev واللي فوقه يقدر يشوفه\n\nاي حد رتبته اقل من {possible_rank} ما يقدر يستخدم {command_name} ❌")
+                bot.reply_to(m, f"🔒 تم قفل {command_name} لـ {possible_rank}\n✅ تحديث تلقائي للكل")
                 return
-        
-        # بدون رتبة - اسأل عن الرتبة في الخاص
         waiting_rank_private[uid] = {"command": cmd_text}
-        bot.reply_to(m, f"""🔒 قفل امر {cmd_text} من الخاص
-
-{get_rank_list_text()}
-
-ارسل الرتبة الحين:
-مثال: Dev
-
-الامر {cmd_text} بيصير فقط لرتبة Dev وفوق
-اي حد اقل من Dev ما يشوفه ❌""")
+        bot.reply_to(m, f"🔒 قفل {cmd_text}\n{get_rank_list_text()}")
         return
 
-    # انتظار رتبة في الخاص
     if uid in waiting_rank_private:
         rank = normalize_rank(text_content)
         if rank in RANK_ORDER:
@@ -269,48 +342,47 @@ def private_lab(m):
             locked[command] = rank
             save_locked()
             del waiting_rank_private[uid]
-            bot.reply_to(m, f"✅ تم قفل امر {command} من الخاص 🔒\n≡ لرتبة ↤ {rank} 🎖️\n≡ فقط\n\nالحين:\n• Dev يقدر يشوف {command} ✅\n• اي رتبة اقل من {rank} ما يقدر يشوفه ❌\n• التحكم كله من خاص البوت ✅")
+            bot.reply_to(m, f"✅ تم قفل {command} لـ {rank}\n🔄 تحديث تلقائي للكل")
             return
 
-    # فتح امر من الخاص
     if text_content.startswith("فتح امر ") or text_content.startswith("فتح أمر "):
         cmd = text_content.replace("فتح امر ","").replace("فتح أمر ","").strip()
         if cmd in locked:
             del locked[cmd]
             save_locked()
-            bot.reply_to(m, f"✅ تم فتح امر {cmd} من الخاص 🔓\nالكل يقدر يشوفه ويستخدمه الحين")
+            bot.reply_to(m, f"✅ فتح {cmd}\n🔄 تحديث تلقائي")
         else:
-            bot.reply_to(m, f"❌ امر {cmd} مو مقفول اصلا")
+            bot.reply_to(m, f"❌ {cmd} مو مقفول")
         return
 
-    # قائمة الاقفال من الخاص
-    if text_content in ["قائمة الاقفال","قائمه الاقفال","الاقفال","الاوامر المقفولة","اقفالي"]:
-        if not locked:
-            bot.reply_to(m, "🔓 ما فيه اوامر مقفولة\nكل الاوامر مفتوحة للكل")
-            return
-        txt = "🔒 الاوامر المقفولة (تحكم من الخاص):\n━━━━━━━━━━━━━━\n"
-        for cmd, rank in locked.items():
-            txt += f"• {cmd} ↤ {rank}\n"
-        txt += "━━━━━━━━━━━━━━\n"
-        txt += "• Dev وفوق يقدر يشوفها ✅\n"
-        txt += "• اقل من الرتبة ما يشوفها ❌\n"
-        txt += "━━━━━━━━━━━━━━\n"
-        txt += "لفتح: فتح امر المطور\n"
-        txt += "لقفل: قفل امر المطور Dev"
+    if text_content in ["قائمة الاقفال","قائمه الاقفال","الاقفال","تحديث الاوامر","تحديث"]:
+        # يحدث كل شي
+        load_all()
+        txt = "🔄 تم تحديث كل الاوامر تلقائيا ✅\n"
+        txt += f"━━━━━━━━━━━━━━\n"
+        txt += f"• اوامر مخصصة: {len(custom)}\n"
+        txt += f"• رتب: {sum(len(v) for v in user_ranks.values())}\n"
+        txt += f"• اقفال: {len(locked)}\n"
+        txt += f"• متفاعلين: {sum(len(v) for v in top_data.values())}\n"
+        txt += f"━━━━━━━━━━━━━━\n"
+        if locked:
+            txt += "🔒 الاقفال:\n"
+            for cmd, rank in locked.items():
+                txt += f"• {cmd} ↤ {rank}\n"
+        else:
+            txt += "🔓 ما فيه اقفال\n"
         bot.reply_to(m, txt)
         return
 
-    # فتح كل الاقفال
-    if text_content in ["فتح الكل","فتح جميع الاقفال","مسح الاقفال"]:
+    if text_content in ["فتح الكل"]:
         locked.clear()
         save_locked()
-        bot.reply_to(m, "✅ تم فتح كل الاقفال 🔓\nكل الاوامر مفتوحة للكل الحين")
+        bot.reply_to(m, "✅ فتح الكل - تحديث تلقائي")
         return
 
-    # تعديل معلومات المطور
     if text_content in ["عدل معلومات المطور","تعديل المطور","عدل المطور"]:
         edit_motawer[uid] = {"step": "name", "data": dict(owner_info)}
-        bot.reply_to(m, f"✏️ تعديل المطور ²⁷\nالاسم الحالي: {owner_info.get('name')}\nارسل الاسم الجديد او تخطي:")
+        bot.reply_to(m, f"✏️ الاسم: {owner_info.get('name')}\nارسل الجديد:")
         return
 
     if uid in edit_motawer:
@@ -323,14 +395,13 @@ def private_lab(m):
                 data["bio"] = text_content
             elif step == "photo" and m.content_type == 'photo':
                 data["photo"] = m.photo[-1].file_id
-        
         if step == "name":
             edit_motawer[uid]["step"] = "bio"
-            bot.reply_to(m, f"✅ الاسم: {data['name']}\nالحين البايو (او تخطي):")
+            bot.reply_to(m, f"✅ الاسم: {data['name']}\nالبايو:")
             return
         elif step == "bio":
             edit_motawer[uid]["step"] = "photo"
-            bot.reply_to(m, f"✅ البايو: {data['bio']}\nالحين صورة المطور (او تم):")
+            bot.reply_to(m, f"✅ البايو: {data['bio']}\nالصورة:")
             return
         elif step == "photo":
             owner_info = data
@@ -343,7 +414,7 @@ def private_lab(m):
             if owner_info.get("photo"):
                 bot.send_photo(m.chat.id, owner_info["photo"], caption=text_preview, reply_markup=markup)
             else:
-                bot.reply_to(m, f"✅ تم ✅\n{text_preview}", reply_markup=markup)
+                bot.reply_to(m, f"✅ تم\n{text_preview}", reply_markup=markup)
             return
 
     if text_content.startswith("احفظ معلوماتي"):
@@ -356,19 +427,12 @@ def private_lab(m):
         owner_info["username"] = "afiwd"
         save_owner()
         markup = get_owner_button()
-        bot.reply_to(m, f"✅ حفظت\n{owner_info['name']} @afiwd", reply_markup=markup)
-        return
-
-    if m.content_type == 'photo' and "صورة المطور" in (m.caption or ""):
-        owner_info["photo"] = m.photo[-1].file_id
-        save_owner()
-        markup = get_owner_button()
-        bot.send_photo(m.chat.id, owner_info["photo"], caption=get_motawer_text(), reply_markup=markup)
+        bot.reply_to(m, f"✅ حفظت {owner_info['name']} - تحديث تلقائي", reply_markup=markup)
         return
 
     if text_content.startswith("ضع صورة المطور"):
-        bot.reply_to(m, "📸 ارسل صورة المطور الحين:")
-        waiting[uid] = {"step": "wait_photo_motawer", "command": "صورة المطور"}
+        bot.reply_to(m, "📸 ارسل صورة:")
+        waiting[uid] = {"step": "wait_photo_motawer"}
         return
 
     if uid in waiting and waiting[uid].get("step") == "wait_photo_motawer":
@@ -378,7 +442,6 @@ def private_lab(m):
             del waiting[uid]
             markup = get_owner_button()
             bot.send_photo(m.chat.id, owner_info["photo"], caption=get_motawer_text(), reply_markup=markup)
-            bot.send_message(m.chat.id, "✅ حفظت الصورة + الزر اسفل ²⁷")
         return
 
     if uid in waiting and waiting[uid]['step'] == 'wait_reply':
@@ -394,7 +457,7 @@ def private_lab(m):
             data = {"type": ctype, "text": m.text or m.caption or "", "entities": save_all_entities(m), "file_id": getattr(getattr(m, ctype, None), 'file_id', None), "caption": m.caption or "", "caption_entities": save_all_entities(m)}
         pending[uid] = {"t": cmd, "data": data}
         del waiting[uid]
-        bot.reply_to(m, f"تمام ✅\nالأمر: {cmd}\nاكتب: ارفعه")
+        bot.reply_to(m, f"تمام ✅ {cmd}\nاكتب: ارفعه - بيتحدث تلقائي للكل")
         return
 
     if text_content.startswith("اضف امر"):
@@ -405,14 +468,14 @@ def private_lab(m):
             if trig and resp:
                 data = {"type": "text", "text": resp, "entities": save_all_entities(m), "file_id": None, "caption": "", "caption_entities": []}
                 pending[uid]={"t":trig,"data":data}
-                bot.reply_to(m, f"تمام ✅\n{trig} ↦ {resp}\nاكتب: ارفعه")
+                bot.reply_to(m, f"تمام ✅ {trig} ↦ {resp}\nارفعه")
                 return
         else:
             cmd = tmp
             if not cmd:
                 return
             waiting[uid] = {"step": "wait_reply", "command": cmd}
-            bot.reply_to(m, f"تمام - الأمر: {cmd} ²⁷\nارسل الرد:")
+            bot.reply_to(m, f"تمام - الأمر: {cmd}\nارسل الرد:")
             return
 
     if text_content in ["ارفعه","احفظه","ارفعه للسيرفر"]:
@@ -420,7 +483,7 @@ def private_lab(m):
             return
         t=pending[uid]["t"]; data=pending[uid]["data"]
         custom[t]=data; save_custom(); del pending[uid]
-        bot.reply_to(m, f"✅ حفظت\n{t}")
+        bot.reply_to(m, f"✅ حفظت {t}\n🔄 تحديث تلقائي للكل - الكل يقدر يستخدمه الحين")
         return
 
     if text_content in ["الغاء","الغه"]:
@@ -429,55 +492,174 @@ def private_lab(m):
         return
 
     if text_content in ["/start","start"]:
+        load_all()
         markup = get_owner_button()
-        bot.reply_to(m, f"""اهلا - {uid} ✅
+        bot.reply_to(m, f"""اهلا {uid} ✅
 خاصك: https://t.me/afiwd
 
-🔒 التحكم بالاقفال من الخاص (جديد):
+🔄 التحديث التلقائي شغال:
+• كل رسالة تتحدث
+• كل رفع يتحدث
+• كل امر يتحدث
 
-قفل امر المطور Dev
-→ يقفل المطور لـ Dev بس
-→ اي رتبة اقل ما تشوفه ❌
+اوامر:
+قفل امر المطور Dev → قفل + تحديث تلقائي
+فتح امر المطور → فتح + تحديث تلقائي
+تحديث الاوامر → يحدث كل شي
 
-قفل امر كتم MY
-→ كتم لـ MY وفوق بس
-
-فتح امر المطور
-→ يفتح المطور للكل
-
-قائمة الاقفال
-→ تشوف كل الاقفال
-
-فتح الكل
-→ يفتح كل الاقفال
-
-━━━━━━━━━━━━━━
-
-اوامر المطور:
-عدل معلومات المطور
-ضع صورة المطور
-احفظ معلوماتي: محسن
-
-━━━━━━━━━━━━━━
-
-رتب:
-Dev - Dev2 - MY - M - مالك المجموعه - مالك اساسي - مالك - منشئ اساسي - منشئ - مدير - ادمن - مميز
+الاحصائيات:
+• اوامر: {len(custom)}
+• رتب: {sum(len(v) for v in user_ranks.values())}
+• اقفال: {len(locked)}
 """, reply_markup=markup)
         return
 
-@bot.message_handler(content_types=['text'])
+@bot.message_handler(content_types=['text','photo','sticker','animation','video','voice','document'])
 def groups(m):
     if m.chat.type == 'private':
         return
-    text = (m.text or "").strip()
+    
+    text = (m.text or m.caption or "").strip()
     chat_id = m.chat.id
     chat_title = m.chat.title or "القروب"
     user_id = m.from_user.id
+    first_name = m.from_user.first_name or "شخص"
 
-    # قفل امر من القروب ايضا
+    # ===== تحديث تلقائي لكل رسالة =====
+    try:
+        add_message_count(chat_id, user_id, first_name)
+        # يحدث الرتب تلقائيا كل رسالة - بدون ما تحتاج امر
+    except:
+        pass
+
+    # ===== رفع رتبة - يحدث كل الاوامر تلقائيا =====
+    if text.startswith("رفع ") and m.reply_to_message:
+        rank_name = normalize_rank(text.replace("رفع ","").strip())
+        if rank_name in RANK_ORDER:
+            target_id = m.reply_to_message.from_user.id
+            target_name = m.reply_to_message.from_user.first_name or "الشخص"
+            
+            if get_user_rank_level(user_id, chat_id) <= RANK_ORDER.get(rank_name,0) and user_id != OWNER_BOT_ID:
+                bot.reply_to(m, f"❌ ما تقدر ترفع {rank_name}")
+                return
+            
+            chat_id_str = str(chat_id)
+            user_id_str = str(target_id)
+            if chat_id_str not in user_ranks:
+                user_ranks[chat_id_str] = {}
+            
+            # تحديث فوري + تلقائي لكل الاوامر
+            user_ranks[chat_id_str][user_id_str] = rank_name
+            save_ranks()
+            
+            # يحدث top كمان
+            if chat_id_str not in top_data:
+                top_data[chat_id_str] = {}
+            if user_id_str not in top_data[chat_id_str]:
+                top_data[chat_id_str][user_id_str] = {"count": 1, "name": target_name}
+            save_top()
+            
+            count, pos = get_user_stats(chat_id, target_id)
+            
+            # سكرين يحدث تلقائيا
+            text_reply = f"""🎖️ {rank_name} ← تم رفع {target_name} إلى
+
+≡ رتبته هي ← {rank_name} 🎖️
+≡ رسائله بالتفاعل ← {count}
+≡ ترتيبه بالمتفاعلين ← {pos}
+-
+🔄 تحديث تلقائي لكل الاوامر ✅ ²⁷"""
+            bot.send_message(chat_id, text_reply, parse_mode="HTML", reply_to_message_id=m.message_id)
+            return
+
+    if text.startswith("تنزيل ") and m.reply_to_message:
+        rank_name = normalize_rank(text.replace("تنزيل ","").strip())
+        target_id = m.reply_to_message.from_user.id
+        target_name = m.reply_to_message.from_user.first_name or "الشخص"
+        chat_id_str = str(chat_id)
+        user_id_str = str(target_id)
+        if chat_id_str in user_ranks and user_id_str in user_ranks[chat_id_str]:
+            del user_ranks[chat_id_str][user_id_str]
+            save_ranks()
+            bot.send_message(chat_id, f"✅ تم تنزيل {target_name} من {rank_name}\n🔄 تحديث تلقائي لكل الاوامر ✅", reply_to_message_id=m.message_id)
+            return
+
+    if text in ["تنزيل الكل"] and m.reply_to_message:
+        target_id = m.reply_to_message.from_user.id
+        target_name = m.reply_to_message.from_user.first_name or "الشخص"
+        chat_id_str = str(chat_id)
+        user_id_str = str(target_id)
+        if chat_id_str in user_ranks and user_id_str in user_ranks[chat_id_str]:
+            del user_ranks[chat_id_str][user_id_str]
+            save_ranks()
+            bot.send_message(chat_id, f"✅ تم تنزيل {target_name} من كل الرتب\n🔄 تحديث تلقائي", parse_mode="HTML", reply_to_message_id=m.message_id)
+        return
+
+    # ===== رتبتي - يحدث تلقائيا =====
+    if text in ["رتبتي","رتبتي ²⁷","رتبتي 27"]:
+        rank = get_user_rank_name(user_id, chat_id)
+        count, pos = get_user_stats(chat_id, user_id)
+        reply_text = f"""🎖️ {rank} ≡ رتبتك هي ← 
+
+≡ رسائلك بالتفاعل ← {count}
+≡ ترتيبك بالمتفاعلين ← {pos}
+-
+🔄 تحديث تلقائي ²⁷"""
+        bot.reply_to(m, reply_text)
+        return
+
+    # ===== رتبته - يحدث تلقائيا =====
+    if text in ["رتبته","رتبته ²⁷","رتبه","رتبه ²⁷"] and m.reply_to_message:
+        target_id = m.reply_to_message.from_user.id
+        rank = get_user_rank_name(target_id, chat_id)
+        count, pos = get_user_stats(chat_id, target_id)
+        bot.reply_to(m, f"≡ رتبتك هي ← {rank} 🎖️\n\n≡ رسائلك بالتفاعل ← {count}\n≡ ترتيبك بالمتفاعلين ← {pos}\n-\n🔄 تحديث تلقائي")
+        return
+
+    if text.startswith("رتبته") or text.startswith("رتبه"):
+        if m.reply_to_message:
+            target_id = m.reply_to_message.from_user.id
+            rank = get_user_rank_name(target_id, chat_id)
+            count, pos = get_user_stats(chat_id, target_id)
+            bot.reply_to(m, f"≡ رتبتك هي ← {rank} 🎖️\n\n≡ رسائلك بالتفاعل ← {count}\n≡ ترتيبك بالمتفاعلين ← {pos}\n-\n🔄 تحديث تلقائي")
+            return
+
+    # ===== المتفاعلين - يحدث تلقائيا =====
+    if text in ["المتفاعلين","متفاعلين","تفاعل","التفاعل"]:
+        chat_id_str = str(chat_id)
+        if chat_id_str not in top_data or not top_data[chat_id_str]:
+            bot.reply_to(m, "❌ ما فيه تفاعل بعد")
+            return
+        sorted_users = sorted(top_data[chat_id_str].items(), key=lambda x: x[1]["count"], reverse=True)[:15]
+        txt = f"📊 المتفاعلين في {chat_title} ²⁷\n━━━━━━━━━━━━━━\n"
+        for idx, (uid, data) in enumerate(sorted_users, 1):
+            uid_int = int(uid)
+            name = data["name"]
+            count = data["count"]
+            rank = get_user_rank_name(uid_int, chat_id)
+            if idx == 1:
+                medal = "🥇"
+            elif idx == 2:
+                medal = "🥈"
+            elif idx == 3:
+                medal = "🥉"
+            else:
+                medal = f"{idx}."
+            txt += f"{medal} {name} — {count} — [{rank}]\n"
+        txt += "━━━━━━━━━━━━━━\n🔄 تحديث تلقائي"
+        bot.reply_to(m, txt)
+        return
+
+    # تحديث الاوامر يدوي
+    if text in ["تحديث الاوامر","تحديث"]:
+        load_all()
+        bot.reply_to(m, f"🔄 تم تحديث كل الاوامر تلقائيا ✅\n• اوامر: {len(custom)}\n• رتب: {sum(len(v) for v in user_ranks.values())}\n• اقفال: {len(locked)}")
+        return
+
+    # قفل امر - يحدث تلقائي
     if text.startswith("قفل امر ") or text.startswith("قفل أمر "):
         if user_id != OWNER_BOT_ID and get_user_rank_level(user_id, chat_id) < RANK_ORDER.get("Dev",12):
-            bot.reply_to(m, "❌ فقط Dev يقدر يقفل")
+            bot.reply_to(m, "❌ فقط Dev")
             return
         cmd_text = text.replace("قفل امر ","").replace("قفل أمر ","").strip()
         parts = cmd_text.split()
@@ -487,7 +669,7 @@ def groups(m):
                 command_name = " ".join(parts[:-1]).strip()
                 locked[command_name] = possible_rank
                 save_locked()
-                bot.reply_to(m, f"≡ تم وضع امر ↤ {command_name}\n≡ لرتبة ↤ {possible_rank} 🎖️\n≡ فقط")
+                bot.reply_to(m, f"≡ تم وضع امر ↤ {command_name}\n≡ لرتبة ↤ {possible_rank} 🎖️\n≡ فقط\n🔄 تحديث تلقائي للكل ✅")
                 return
         waiting_rank[chat_id] = {"command": cmd_text, "user": user_id}
         bot.reply_to(m, f"""≡ حسنًا عزيزي قم بإرسال الرتبة الان :
@@ -516,7 +698,7 @@ def groups(m):
             locked[command] = rank
             save_locked()
             del waiting_rank[chat_id]
-            bot.reply_to(m, f"≡ تم وضع امر ↤ {command}\n≡ لرتبة ↤ {rank} 🎖️\n≡ فقط\n\n• {rank} وفوق يشوفه ✅\n• اقل من {rank} ما يشوفه ❌")
+            bot.reply_to(m, f"≡ تم وضع امر ↤ {command}\n≡ لرتبة ↤ {rank} 🎖️\n≡ فقط\n🔄 تحديث تلقائي للكل ✅")
             return
 
     if text.startswith("فتح امر ") or text.startswith("فتح أمر "):
@@ -524,56 +706,19 @@ def groups(m):
         if cmd in locked:
             del locked[cmd]
             save_locked()
-            bot.reply_to(m, f"✅ تم فتح امر {cmd} 🔓\nالكل يقدر يشوفه الحين")
+            bot.reply_to(m, f"✅ فتح {cmd}\n🔄 تحديث تلقائي")
         else:
-            bot.reply_to(m, f"❌ امر {cmd} مو مقفول")
+            bot.reply_to(m, f"❌ {cmd} مو مقفول")
         return
 
     if text in ["قائمة الاقفال","قائمه الاقفال","الاقفال"]:
         if not locked:
-            bot.reply_to(m, "🔓 ما فيه اوامر مقفولة")
+            bot.reply_to(m, "ما فيه اقفال - تحديث تلقائي ✅")
             return
-        txt = "🔒 الاوامر المقفولة:\n━━━━━━━━━━━━━━\n"
+        txt = "🔒 الاقفال (تحديث تلقائي):\n"
         for cmd, rank in locked.items():
             txt += f"• {cmd} ↤ {rank}\n"
-        txt += "━━━━━━━━━━━━━━\nاقل من الرتبة ما يشوفها ❌"
         bot.reply_to(m, txt)
-        return
-
-    if text.startswith("رفع ") and m.reply_to_message:
-        rank_name = normalize_rank(text.replace("رفع ","").strip())
-        if rank_name in RANK_ORDER:
-            target_id = m.reply_to_message.from_user.id
-            target_name = m.reply_to_message.from_user.first_name or "الشخص"
-            if get_user_rank_level(user_id, chat_id) <= RANK_ORDER.get(rank_name,0) and user_id != OWNER_BOT_ID:
-                bot.reply_to(m, f"❌ ما تقدر ترفع {rank_name}")
-                return
-            chat_id_str = str(chat_id)
-            user_id_str = str(target_id)
-            if chat_id_str not in user_ranks:
-                user_ranks[chat_id_str] = {}
-            user_ranks[chat_id_str][user_id_str] = rank_name
-            save_ranks()
-            mention = f"<a href='tg://user?id={target_id}'>{target_name}</a>"
-            bot.send_message(chat_id, f"✅ تم رفع {mention}\nإلى {rank_name} ²⁷", parse_mode="HTML", reply_to_message_id=m.message_id)
-            return
-
-    if text.startswith("تنزيل ") and m.reply_to_message:
-        rank_name = normalize_rank(text.replace("تنزيل ","").strip())
-        target_id = m.reply_to_message.from_user.id
-        target_name = m.reply_to_message.from_user.first_name or "الشخص"
-        chat_id_str = str(chat_id)
-        user_id_str = str(target_id)
-        if chat_id_str in user_ranks and user_id_str in user_ranks[chat_id_str]:
-            del user_ranks[chat_id_str][user_id_str]
-            save_ranks()
-            mention = f"<a href='tg://user?id={target_id}'>{target_name}</a>"
-            bot.send_message(chat_id, f"✅ تم تنزيل {mention}", parse_mode="HTML", reply_to_message_id=m.message_id)
-            return
-
-    if text in ["رتبتي","رتبتي ²⁷"]:
-        rank = get_user_rank_name(user_id, chat_id)
-        bot.reply_to(m, f"رتبتك: {rank} ²⁷")
         return
 
     if text.startswith("ضع اسم القروب") or text.startswith("ضع اسم"):
@@ -587,19 +732,16 @@ def groups(m):
             bot.set_chat_title(chat_id, new_name)
             owner_info["group"] = new_name
             save_owner()
-            bot.reply_to(m, f"✅ تم تغيير اسم القروب:\n{new_name}")
+            bot.reply_to(m, f"✅ تم تغيير اسم القروب:\n{new_name}\n🔄 تحديث تلقائي")
         except Exception as e:
             bot.reply_to(m, f"❌ ما قدرت\n{e}")
         return
 
-    # تقييد مع تشييك القفل - يمنع اللي رتبته اقل
-    if text in ["تقييد","تقييدد","قيد","كتم","كتمم"]:
-        # تشييك القفل
+    if text in ["تقييد","قيد","كتم"]:
         if not can_use_command(user_id, chat_id, "كتم") and not can_use_command(user_id, chat_id, text):
             required = locked.get("كتم") or locked.get(text) or "مميز"
-            bot.reply_to(m, f"❌ امر {text} مقفول لرتبة {required} فقط\nرتبتك اقل ما تقدر تشوفه")
+            bot.reply_to(m, f"❌ {text} مقفول لـ {required}")
             return
-        
         if not m.reply_to_message:
             bot.reply_to(m, "❌ رد على الشخص")
             return
@@ -609,20 +751,18 @@ def groups(m):
         if target_id == bot.get_me().id:
             return
         if get_user_rank_level(target_id, chat_id) >= get_user_rank_level(user_id, chat_id) and user_id != OWNER_BOT_ID:
-            bot.reply_to(m, f"❌ ما تقدر تقيد {target_name} - رتبته اعلى")
+            bot.reply_to(m, f"❌ ما تقدر تقيد {target_name}")
             return
         try:
             bot.restrict_chat_member(chat_id=chat_id, user_id=target_id, permissions=ChatPermissions(can_send_messages=False))
             mention_text = f"• المستخدم ذا <a href='tg://user?id={target_id}'>{target_name}</a> قيده ²⁷ 🔒"
             bot.send_message(chat_id, mention_text, parse_mode="HTML", reply_to_message_id=m.message_id)
         except Exception as e:
-            bot.reply_to(m, f"ما قدرت اقيده\n{e}")
+            bot.reply_to(m, f"ما قدرت\n{e}")
         return
 
     if text in ["فك التقييد","فك تقييد","فك كتم"]:
         if not can_use_command(user_id, chat_id, "كتم"):
-            required = locked.get("كتم") or "مميز"
-            bot.reply_to(m, f"❌ امر فك التقييد مقفول لرتبة {required} فقط")
             return
         if not m.reply_to_message:
             return
@@ -637,33 +777,19 @@ def groups(m):
             pass
         return
 
-    # المطور مع تشييك القفل
-    if text in ["المطور","المطورر","المطور ²⁷","مطور"]:
+    if text in ["المطور","المطورر","مطور"]:
         if not can_use_command(user_id, chat_id, "المطور"):
             required = locked.get("المطور") or "Dev"
-            bot.reply_to(m, f"❌ امر المطور مقفول لرتبة {required} فقط\nرتبتك: {get_user_rank_name(user_id, chat_id)} - ما تقدر تشوفه")
+            bot.reply_to(m, f"❌ المطور مقفول لـ {required}")
             return
-        
-        real_group_name = chat_title
         markup = get_owner_button()
-        text_out = get_motawer_text(real_group_name)
-        
+        text_out = get_motawer_text(chat_title)
         if owner_info.get("photo"):
             try:
                 bot.send_photo(chat_id, owner_info["photo"], caption=text_out, reply_markup=markup, reply_to_message_id=m.message_id)
                 return
             except:
                 pass
-        
-        if "المطور" in custom:
-            data = custom["المطور"]
-            if data.get("type") == "photo":
-                try:
-                    bot.send_photo(chat_id, data["file_id"], caption=text_out, reply_markup=markup, reply_to_message_id=m.message_id)
-                except:
-                    bot.send_message(chat_id, text_out, reply_markup=markup, reply_to_message_id=m.message_id)
-                return
-        
         bot.send_message(chat_id, text_out, reply_markup=markup, reply_to_message_id=m.message_id)
         return
 
@@ -672,7 +798,7 @@ def groups(m):
             return
         if not can_use_command(user_id, chat_id, text):
             required = locked.get(text) or "مميز"
-            bot.reply_to(m, f"❌ امر {text} مقفول لرتبة {required} فقط")
+            bot.reply_to(m, f"❌ {text} مقفول لـ {required}")
             return
         data = custom[text]
         if isinstance(data, dict):
@@ -701,7 +827,7 @@ def groups(m):
         else:
             bot.reply_to(m, str(data))
 
-print("READY - PRIVATE LOCK CONTROL + AFIWD + MENTION")
+print("READY - AUTO UPDATE ALL COMMANDS + RANK + TOP + AFIWD")
 
 while True:
     try:
