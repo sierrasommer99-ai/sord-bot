@@ -5,7 +5,7 @@ import threading
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
-    return "OK - SHAPE DYNAMIC", 200
+    return "OK - FIX PLACEHOLDERS", 200
 @flask_app.route('/health')
 def health():
     return "OK", 200
@@ -14,7 +14,7 @@ def run_flask():
     flask_app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 threading.Thread(target=run_flask, daemon=True).start()
 
-import telebot, json, time, requests
+import telebot, json, time, requests, re
 from telebot.types import MessageEntity, User
 
 BOT_TOKEN = "8769832522:AAF-qXZfMQ75Z1XfnLN2hA-G90qP0xYKzTA"
@@ -121,6 +121,14 @@ def get_rank(uid,cid):
         return user_ranks[cs][us]
     return "عضو"
 
+def get_rank_with_badge(uid,cid):
+    rank = get_rank(uid,cid)
+    level = RANK_ORDER.get(rank,0)
+    if level >= RANK_ORDER.get("MY",10) or uid==OWNER_BOT_ID:
+        return f"{rank} 🎖️"
+    else:
+        return rank
+
 def add_count(cid,uid,name):
     cs=str(cid); us=str(uid)
     if cs not in top_data:
@@ -172,14 +180,72 @@ def restore_entities(data):
             pass
     return res
 
-def replace_placeholders(text, target_name, target_rank, target_count, target_pos):
+def replace_placeholders(text, target_name, target_rank_raw, target_rank_badge, target_count, target_pos):
     if not text:
         return text
-    # يدعم كل المتغيرات
-    text = text.replace("{الاسم}", target_name).replace("{فلان}", target_name).replace("{name}", target_name).replace("{المعرف}", target_name)
-    text = text.replace("{الرتبة}", target_rank).replace("{رتبته}", target_rank).replace("{رتبتي}", target_rank).replace("{rank}", target_rank)
-    text = text.replace("{التفاعل}", str(target_count)).replace("{تفاعلي}", str(target_count)).replace("{رسائلي}", str(target_count))
-    text = text.replace("{الترتيب}", str(target_pos)).replace("{ترتيبي}", str(target_pos)).replace("{ترتيبه}", str(target_pos))
+    # مع اقواس وبدون اقواس - يفهم الاثنين
+    # {الرتبة} او الرتبة
+    # {التفاعل} او التفاعل
+    # {الترتيب} او الترتيب او الرتيب
+    # {الاسم} او الاسم
+    
+    # اولا مع اقواس
+    text = text.replace("{الرتبة}", target_rank_badge).replace("{رتبته}", target_rank_badge).replace("{رتبتي}", target_rank_badge)
+    text = text.replace("{التفاعل}", str(target_count)).replace("{تفاعلي}", str(target_count)).replace("{تفاعله}", str(target_count))
+    text = text.replace("{الترتيب}", str(target_pos)).replace("{ترتيبي}", str(target_pos)).replace("{الرتيب}", str(target_pos)).replace("{الترتيب}", str(target_pos))
+    text = text.replace("{الاسم}", target_name).replace("{فلان}", target_name).replace("{المعرف}", target_name)
+    
+    # بدون اقواس - فقط اذا كلمة مستقلة بعد ← او ≡ او مسافة
+    # نستخدم regex عشان ما نخرب النص
+    # الرتبة
+    text = re.sub(r'←\s*الرتبة\b', f'← {target_rank_badge}', text)
+    text = re.sub(r'≡\s*الرتبة\b', f'≡ {target_rank_badge}', text)
+    # لو كتبت وحدها في السطر
+    if text.strip() == "الرتبة":
+        text = target_rank_badge
+    # التفاعل
+    text = re.sub(r'←\s*التفاعل\b', f'← {target_count}', text)
+    # الرتيب / الترتيب
+    text = re.sub(r'←\s*الرتيب\b', f'← {target_pos}', text)
+    text = re.sub(r'←\s*الترتيب\b', f'← {target_pos}', text)
+    text = re.sub(r'←\s*الرتيب\b', f'← {target_pos}', text)
+    
+    # اذا كتب ← الرتبة في الاخر
+    # نستبدل ايضا اذا موجودة كقيمة مستقلة
+    # مثال: "رتبتك هي ← الرتبة" -> "رتبتك هي ← MY 🎖️"
+    if "الرتبة" in text and target_rank_badge not in text:
+        # فقط لو ما فيه {الرتبة} اصلا وما استبدلنا
+        # نستبدل اخر ظهور لـ الرتبة اذا كان بعد ←
+        parts = text.split("←")
+        if len(parts) > 1 and "الرتبة" in parts[-1]:
+            # اذا اخر جزء فيه الرتبة
+            text = text.replace("الرتبة", target_rank_badge, 1) if "الرتبة" in text else text
+    
+    return text
+
+# تحسين: دالة ذكية تفهم الشكل
+def smart_replace(text, name, rank_raw, rank_badge, count, pos):
+    if not text:
+        return text
+    original = text
+    
+    # اذا استخدم { } - نستخدم القديم
+    if "{" in text and "}" in text:
+        return replace_placeholders(text, name, rank_raw, rank_badge, count, pos)
+    
+    # اذا كتب بدون اقواس مثل الصورة: "رتبتك هي ← الرتبة"
+    # نستبدل الرتبة / التفاعل / الرتيب
+    # نبحث عن النمط: ← الرتبة , ← التفاعل , ← الرتيب
+    # هذا اللي في صورتك
+    
+    # نستبدل بذكاء
+    # اذا فيه كلمة الرتبة لوحدها
+    text = text.replace("الرتبة", rank_badge)
+    text = text.replace("التفاعل", str(count))
+    text = text.replace("الرتيب", str(pos))
+    text = text.replace("الترتيب", str(pos))
+    
+    # اذا بعد الاستبدال لسه فيه كلمات عامة
     return text
 
 waiting={}
@@ -230,38 +296,22 @@ def private_lab(m):
             a,b=tmp.split("->",1)
             trig=a.strip(); resp=b.strip()
             if trig and resp:
-                # لو رتبتي - لازم يستخدم متغيرات مو رقم ثابت
-                if trig in ["رتبتي","رتبته","رتبه","رتبتي ²⁷","رتبته ²⁷"]:
-                    if "{الرتبة}" not in resp and "{التفاعل}" not in resp and "{الترتيب}" not in resp:
-                        bot.reply_to(m, f"❌ لا تحط رقم ثابت مثل 422 و 7\n\nاستخدم المتغيرات عشان يحدث تلقائيا:\n\n{{الرتبة}} = رتبته (MY, مميز...)\n{{التفاعل}} = رسائله\n{{الترتيب}} = ترتيبه\n{{الاسم}} = اسمه\n\nمثال:\n≡ رتبتك هي ← {{الرتبة}} 🎖️\n≡ رسائلك بالتفاعل ← {{التفاعل}}\n≡ ترتيبك بالمتفاعلين ← {{الترتيب}}\n-\n\nارسل الرد الصحيح:")
-                        waiting[uid]={"step":"wait_reply","command":trig}
-                        return
                 data={"type":"text","text":resp,"entities":save_entities(m),"file_id":None,"caption":"","caption_entities":[]}
                 pending[uid]={"t":trig,"data":data}
-                bot.reply_to(m,f"تمام - الامر: {trig}\nالشكل:\n{resp}\n\nبيرد بنفس الشكل بس { '{الرتبة} {التفاعل} {الترتيب}' } يحدث تلقائيا ✅\nاكتب: ارفعه")
+                bot.reply_to(m,f"تمام - الامر: {trig}\nالشكل:\n{resp}\n\nبيرد بنفس الشكل بس يحدث ✅\nاكتب: ارفعه")
                 return
         else:
             cmd=tmp
             if not cmd:
                 return
             waiting[uid]={"step":"wait_reply","command":cmd}
-            if cmd in ["رتبتي","رتبته"]:
-                bot.reply_to(m,f"تمام - الامر: {cmd} ²⁷\n\nارسل الشكل اللي تبيه - استخدم المتغيرات عشان يحدث:\n{{الرتبة}} {{التفاعل}} {{الترتيب}} {{الاسم}}\n\nمثال:\n≡ رتبتك هي ← {{الرتبة}} 🎖️\n≡ رسائلك بالتفاعل ← {{التفاعل}}\n≡ ترتيبك ← {{الترتيب}}\n-\n\nلا تحط 422 ثابت - حط {{التفاعل}}")
-            else:
-                bot.reply_to(m,f"تمام - الامر: {cmd} ²⁷\nارسل الرد اللي تبيه يرد فيه بنفس الشكل:")
+            bot.reply_to(m,f"تمام - الامر: {cmd} ²⁷\nارسل الشكل اللي تبيه:\n\nتقدر تستخدم:\n{{الرتبة}} او الرتبة\n{{التفاعل}} او التفاعل\n{{الترتيب}} او الرتيب\n{{الاسم}}\n\nمثال:\n≡ رتبتك هي ← {{الرتبة}}\n≡ رسائلك ← {{التفاعل}}\n≡ ترتيبك ← {{الترتيب}}")
             return
 
     if uid in waiting and waiting[uid]['step']=='wait_reply':
         cmd=waiting[uid]['command']
         ctype=m.content_type
         if ctype=='text':
-            raw_text = m.text
-            # لو رتبتي ورقم ثابت بدون متغيرات - نبهه
-            if cmd in ["رتبتي","رتبته","رتبه"] and "{الرتبة}" not in raw_text and "{التفاعل}" not in raw_text and "{الترتيب}" not in raw_text:
-                # اذا فيه ارقام ثابتة كبيرة
-                if "422" in raw_text or "420" in raw_text or " 7" in raw_text:
-                    bot.reply_to(m, f"❌ انت حاط رقم ثابت {raw_text}\n\nما بيحدث - بيطلع ثابت للكل\n\nاستخدم:\n{{الرتبة}} بدل Dev\n{{التفاعل}} بدل 422\n{{الترتيب}} بدل 7\n{{الاسم}} بدل الاسم\n\nارسل الشكل الصحيح مرة ثانية:")
-                    return
             data={"type":"text","text":m.text,"entities":save_entities(m),"file_id":None,"caption":"","caption_entities":[]}
         elif ctype=='photo':
             data={"type":"photo","text":"","entities":[],"file_id":m.photo[-1].file_id,"caption":m.caption or "","caption_entities":save_entities(m)}
@@ -271,7 +321,7 @@ def private_lab(m):
             data={"type":ctype,"text":m.text or m.caption or "","entities":save_entities(m),"file_id":getattr(getattr(m,ctype,None),'file_id',None),"caption":m.caption or "","caption_entities":save_entities(m)}
         pending[uid]={"t":cmd,"data":data}
         del waiting[uid]
-        bot.reply_to(m,f"تمام - الرد محفوظ\nالشكل اللي عطيته بيرد بنفسه بس يحدث تلقائيا ✅\nاكتب: ارفعه")
+        bot.reply_to(m,f"تمام - محفوظ\nاكتب: ارفعه")
         return
 
     if txt in ["ارفعه","احفظه"]:
@@ -281,13 +331,10 @@ def private_lab(m):
         custom[t]=data
         save_custom()
         del pending[uid]
-        # اظهر كيف بيطلع
         sample_text = data.get("text","") or data.get("caption","")
-        if t in ["رتبتي","رتبته"]:
-            preview = replace_placeholders(sample_text, "محسن", "Dev", 5, 1)
-            bot.reply_to(m,f"✅ حفظت {t}\n\nالشكل اللي عطيته:\n{sample_text}\n\nبيطلع في القروب كذا (يحدث تلقائيا):\n{preview}\n\n✅ مو ثابت - يحدث لكل شخص ✅")
-        else:
-            bot.reply_to(m,f"✅ حفظت {t}\nيرد بنفس الشكل اللي عطيته بالضبط ✅")
+        preview_my = smart_replace(sample_text, "محسن", "MY", "MY 🎖️", 422, 7)
+        preview_member = smart_replace(sample_text, "نايف", "مميز", "مميز", 5, 2)
+        bot.reply_to(m,f"✅ حفظت {t}\n\nالشكل اللي عطيته:\n{sample_text}\n\nلو MY وفوق (مع شارة):\n{preview_my}\n\nلو مميز (بدون شارة):\n{preview_member}\n\n✅ يحدث تلقائيا لكل شخص ✅")
         return
 
     if txt.startswith("احذف امر"):
@@ -297,22 +344,20 @@ def private_lab(m):
             save_custom()
             bot.reply_to(m,f"✅ حذفت {cmd}")
         else:
+            try:
+                with open(FILE,'r',encoding='utf-8') as f:
+                    d=json.load(f)
+                    if cmd in d:
+                        del d[cmd]
+                        with open(FILE,'w',encoding='utf-8') as wf:
+                            json.dump(d,wf,ensure_ascii=False,indent=2)
+                        custom.pop(cmd, None)
+                        bot.reply_to(m,f"✅ حذفت {cmd}")
+                        return
+            except:
+                pass
             bot.reply_to(m,f"❌ {cmd} مو موجود")
         return
-
-    if txt in ["اوامري"]:
-        if not custom:
-            bot.reply_to(m,"ما فيه اوامر مخصصة")
-            return
-        t="اوامرك (ترد بنفس الشكل + تحدث):\n"
-        for k,v in custom.items():
-            txt_v = v.get("text","") or v.get("caption","") or v.get("type","")
-            t+=f"• {k}: {txt_v[:40]}...\n"
-        bot.reply_to(m,t)
-        return
-
-    if txt in ["/start"]:
-        bot.reply_to(m,"خاصك: https://t.me/afiwd\n\nتبي رتبتي يرد بنفس شكلك بس يحدث؟\n\nاضف امر: رتبتي\n≡ رتبتك هي ← {الرتبة} 🎖️\n≡ رسائلك بالتفاعل ← {التفاعل}\n≡ ترتيبك ← {الترتيب}\n-\nارفعه\n\nلا تحط 422 ثابت - حط {التفاعل}")
 
 @bot.message_handler(content_types=['text','photo','sticker','animation','video','voice','document','audio'])
 def groups(m):
@@ -378,7 +423,8 @@ def groups(m):
             user_ranks[cs][us]=rank_name
             save_ranks()
             cnt,pos=get_stats(chat_id,target_id)
-            bot.send_message(chat_id,f"🎖️ تم رفع {target_name} الى {rank_name}\n\n≡ رتبته هي ← {rank_name} 🎖️\n≡ رسائله بالتفاعل ← {cnt}\n≡ ترتيبه بالمتفاعلين ← {pos}\n-",reply_to_message_id=m.message_id)
+            rank_badge = get_rank_with_badge(target_id, chat_id)
+            bot.send_message(chat_id,f"🎖️ تم رفع {target_name} الى {rank_badge}\n\n≡ رتبته هي ← {rank_badge}\n≡ رسائله بالتفاعل ← {cnt}\n≡ ترتيبه بالمتفاعلين ← {pos}\n-",reply_to_message_id=m.message_id)
             return
 
     if text.startswith("تنزيل ") and m.reply_to_message:
@@ -391,7 +437,6 @@ def groups(m):
             bot.send_message(chat_id,f"✅ تم تنزيل {target_name}",reply_to_message_id=m.message_id)
         return
 
-    # رتبتي ورتبته - اذا مخصص بشكلك يرد بنفس الشكل بس يحدث
     if text in ["رتبتي","رتبتي ²⁷","رتبته","رتبته ²⁷","رتبه","رتبة"]:
         target_id = user_id
         target_name = first_name
@@ -404,36 +449,35 @@ def groups(m):
             target_id=target.id
             target_name=target.first_name or "الشخص"
 
-        # اذا فيه امر مخصص بشكلك - يرد بنفس الشكل بس يحدث
         if text in custom or (is_ratbto and "رتبته" in custom) or (not is_ratbto and "رتبتي" in custom):
             key = text if text in custom else ("رتبته" if is_ratbto else "رتبتي")
             if key in custom:
                 data=custom[key]
-                rank=get_rank(target_id,chat_id)
+                rank_raw=get_rank(target_id,chat_id)
+                rank_badge=get_rank_with_badge(target_id,chat_id)
                 cnt,pos=get_stats(chat_id,target_id)
                 raw = data.get("text","") or data.get("caption","")
-                final = replace_placeholders(raw, target_name, rank, cnt, pos)
+                final = smart_replace(raw, target_name, rank_raw, rank_badge, cnt, pos)
                 try:
                     if data.get("type")=="text":
                         bot.send_message(chat_id, final, entities=restore_entities(data.get("entities",[])), reply_to_message_id=m.message_id)
                     elif data.get("type")=="photo":
-                        bot.send_photo(chat_id, data["file_id"], caption=final, caption_entities=restore_entities(data.get("caption_entities",[])), reply_to_message_id=m.message_id)
+                        bot.send_photo(chat_id, data["file_id"], caption=final, reply_to_message_id=m.message_id)
                     else:
                         bot.reply_to(m, final)
                 except:
                     bot.reply_to(m, final)
                 return
 
-        # النظام الاساسي - نفس الشكل
-        rank=get_rank(target_id,chat_id)
+        rank_raw=get_rank(target_id,chat_id)
+        rank_badge=get_rank_with_badge(target_id,chat_id)
         cnt,pos=get_stats(chat_id,target_id)
         if is_ratbto:
-            bot.reply_to(m,f"≡ رتبة {target_name} هي ← {rank} 🎖️\n\n≡ رسائله بالتفاعل ← {cnt}\n≡ ترتيبه بالمتفاعلين ← {pos}\n-")
+            bot.reply_to(m,f"≡ رتبة {target_name} هي ← {rank_badge}\n\n≡ رسائله بالتفاعل ← {cnt}\n≡ ترتيبه بالمتفاعلين ← {pos}\n-")
         else:
-            bot.reply_to(m,f"≡ رتبتك هي ← {rank} 🎖️\n\n≡ رسائلك بالتفاعل ← {cnt}\n≡ ترتيبك بالمتفاعلين ← {pos}\n-")
+            bot.reply_to(m,f"≡ رتبتك هي ← {rank_badge}\n\n≡ رسائلك بالتفاعل ← {cnt}\n≡ ترتيبك بالمتفاعلين ← {pos}\n-")
         return
 
-    # اوامر مخصصة ثانية - ترد بنفس الشكل اللي عطيته في الخاص بالضبط
     if text in custom:
         if text in locked:
             req = locked[text]
@@ -441,35 +485,35 @@ def groups(m):
                 bot.reply_to(m,f"❌ امر {text} مقفول لرتبة {req} فقط")
                 return
         data=custom[text]
-        target_name = first_name
-        target_rank = get_rank(user_id,chat_id)
-        target_count, target_pos = get_stats(chat_id,user_id)
+        rank_raw=get_rank(user_id,chat_id)
+        rank_badge=get_rank_with_badge(user_id,chat_id)
+        cnt,pos=get_stats(chat_id,user_id)
+        tname = first_name
         if m.reply_to_message:
-            target = m.reply_to_message.from_user
-            target_name = target.first_name or "الشخص"
-            target_rank = get_rank(target.id, chat_id)
-            target_count, target_pos = get_stats(chat_id, target.id)
-
+            tname = m.reply_to_message.from_user.first_name or "الشخص"
+            rank_raw = get_rank(m.reply_to_message.from_user.id, chat_id)
+            rank_badge = get_rank_with_badge(m.reply_to_message.from_user.id, chat_id)
+            cnt,pos = get_stats(chat_id, m.reply_to_message.from_user.id)
         if isinstance(data,dict):
             try:
                 ctype=data.get("type","text")
                 if ctype=="text":
                     raw_text = data.get("text","")
-                    final_text = replace_placeholders(raw_text, target_name, target_rank, target_count, target_pos)
-                    bot.send_message(chat_id, final_text, entities=restore_entities(data.get("entities",[])), reply_to_message_id=m.message_id)
+                    final_text = smart_replace(raw_text, tname, rank_raw, rank_badge, cnt, pos)
+                    bot.send_message(chat_id, final_text, reply_to_message_id=m.message_id)
                 elif ctype=="photo":
                     cap = data.get("caption","")
-                    final_cap = replace_placeholders(cap, target_name, target_rank, target_count, target_pos)
+                    final_cap = smart_replace(cap, tname, rank_raw, rank_badge, cnt, pos)
                     bot.send_photo(chat_id, data["file_id"], caption=final_cap, reply_to_message_id=m.message_id)
                 elif ctype=="sticker":
                     bot.send_sticker(chat_id, data["file_id"], reply_to_message_id=m.message_id)
             except:
                 raw_text = data.get("text","") or data.get("caption","")
-                final_text = replace_placeholders(raw_text, target_name, target_rank, target_count, target_pos)
+                final_text = smart_replace(raw_text, tname, rank_raw, rank_badge, cnt, pos)
                 bot.reply_to(m, final_text)
         return
 
-print(f"READY - SHAPE DYNAMIC - SAME SHAPE AS PRIVATE BUT AUTO UPDATE")
+print(f"READY - FIX PLACEHOLDERS - BADGE MY+")
 
 while True:
     try:
