@@ -1,11 +1,11 @@
 import os
 from flask import Flask
-import threading
+import threading, html, json
 
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
-    return "OK - TOP + SHAPE", 200
+    return "OK - PRIVATE MENU", 200
 @flask_app.route('/health')
 def health():
     return "OK", 200
@@ -14,8 +14,8 @@ def run_flask():
     flask_app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 threading.Thread(target=run_flask, daemon=True).start()
 
-import telebot, json, time, requests, re
-from telebot.types import MessageEntity
+import telebot, time, requests, re
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 BOT_TOKEN = "8769832522:AAF-qXZfMQ75Z1XfnLN2hA-G90qP0xYKzTA"
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, parse_mode=None)
@@ -28,10 +28,7 @@ try:
 except:
     pass
 
-BASE_DIR = "/opt/render/project/src" if os.path.exists("/opt/render/project/src") else "."
-if os.path.exists("/data"):
-    BASE_DIR = "/data"
-
+BASE_DIR = "/data" if os.path.exists("/data") else ("/opt/render/project/src" if os.path.exists("/opt/render/project/src") else ".")
 def get_path(name):
     return os.path.join(BASE_DIR, name)
 
@@ -49,61 +46,29 @@ settings = {}
 
 def load_all():
     global custom, locked, user_ranks, top_data, settings
-    try:
-        with open(FILE,'r',encoding='utf-8') as f:
-            d=json.load(f)
-            custom.clear()
-            custom.update(d)
-    except:
-        pass
-    try:
-        with open(LOCK_FILE,'r',encoding='utf-8') as f:
-            d=json.load(f)
-            locked.clear()
-            locked.update(d)
-    except:
-        pass
-    try:
-        with open(RANKS_FILE,'r',encoding='utf-8') as f:
-            d=json.load(f)
-            if d:
-                user_ranks.clear()
-                user_ranks.update(d)
-    except:
-        pass
-    try:
-        with open(TOP_FILE,'r',encoding='utf-8') as f:
-            d=json.load(f)
-            if d:
-                top_data.clear()
-                top_data.update(d)
-    except:
-        pass
-    try:
-        with open(SETTINGS_FILE,'r',encoding='utf-8') as f:
-            d=json.load(f)
-            settings.clear()
-            settings.update(d)
-    except:
+    for fpath, dct in [(FILE, custom), (LOCK_FILE, locked), (RANKS_FILE, user_ranks), (TOP_FILE, top_data), (SETTINGS_FILE, settings)]:
+        try:
+            with open(fpath,'r',encoding='utf-8') as f:
+                data=json.load(f)
+                dct.clear()
+                dct.update(data)
+        except:
+            pass
+    if not settings:
         settings.update({"leave_dev_msg": "≡ المطور غادر المجموعه 💔\n≡ {الاسم} ← {الرتبة}\n-"})
 
 load_all()
 
-def save_custom():
-    with open(FILE,'w',encoding='utf-8') as f:
-        json.dump(custom,f,ensure_ascii=False,indent=2)
-def save_locked():
-    with open(LOCK_FILE,'w',encoding='utf-8') as f:
-        json.dump(locked,f,ensure_ascii=False,indent=2)
-def save_ranks():
-    with open(RANKS_FILE,'w',encoding='utf-8') as f:
-        json.dump(user_ranks,f,ensure_ascii=False,indent=2)
-def save_top():
-    with open(TOP_FILE,'w',encoding='utf-8') as f:
-        json.dump(top_data,f,ensure_ascii=False,indent=2)
-def save_settings():
-    with open(SETTINGS_FILE,'w',encoding='utf-8') as f:
-        json.dump(settings,f,ensure_ascii=False,indent=2)
+def save_json(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path,'w',encoding='utf-8') as f:
+        json.dump(data,f,ensure_ascii=False,indent=2)
+
+def save_custom(): save_json(FILE, custom)
+def save_locked(): save_json(LOCK_FILE, locked)
+def save_ranks(): save_json(RANKS_FILE, user_ranks)
+def save_top(): save_json(TOP_FILE, top_data)
+def save_settings(): save_json(SETTINGS_FILE, settings)
 
 RANK_ORDER = {"مميز":1,"ادمن":2,"مدير":3,"منشئ":4,"منشئ اساسي":5,"مالك":6,"مالك اساسي":7,"مالك المجموعه":8,"M":9,"MY":10,"Dev2":11,"Dev":12}
 
@@ -138,8 +103,7 @@ def get_rank_with_badge(uid,cid):
     level = RANK_ORDER.get(rank,0)
     if level >= RANK_ORDER.get("MY",10) or uid==OWNER_BOT_ID:
         return f"{rank} 🎖️"
-    else:
-        return rank
+    return rank
 
 def add_count(cid,uid,name):
     cs=str(cid); us=str(uid)
@@ -166,24 +130,24 @@ def get_stats(cid,uid):
         pos=len(sorted_users)+1 if cnt>0 else 1
     return cnt,pos
 
-def get_top_list(cid, uid, limit=20):
+def get_top_list_mention(cid, uid):
     cs=str(cid)
     if cs not in top_data or not top_data[cs]:
         return "ما فيه متفاعلين بعد"
-    sorted_users=sorted(top_data[cs].items(),key=lambda x:x[1]["count"],reverse=True)[:limit]
-    txt = "توب اكثر 20 متفاعلين بالقروب : 💬\n"
-    txt += "─────────────\n\n"
+    sorted_users=sorted(top_data[cs].items(),key=lambda x:x[1]["count"],reverse=True)[:20]
+    txt = "💬 توب اكثر 20 متفاعلين بالقروب :\n─────────────\n\n"
     for i,(u_id, data) in enumerate(sorted_users,1):
         name = data.get("name","مجهول")
         cnt = data.get("count",0)
-        # يمنع الاسم يكون طويل
-        if len(name) > 20:
-            name = name[:20]
-        txt += f"{i}) {cnt} | {name}\n"
+        safe_name = html.escape(name[:25])
+        mention = f'<a href="tg://user?id={u_id}">{safe_name}</a>'
+        txt += f"{i}) {cnt} | {mention}\n"
     txt += "\n─────────────\n"
-    my_cnt, my_pos = get_stats(cid, uid)
-    my_name = top_data[cs].get(str(uid),{}).get("name","you")
-    txt += f"≡ you) {my_cnt} | ٢٧"
+    my_cnt, _ = get_stats(cid, uid)
+    my_name = top_data[cs].get(str(uid),{}).get("name","٢٧")
+    safe_my = html.escape(my_name[:25])
+    my_mention = f'<a href="tg://user?id={uid}">{safe_my}</a>'
+    txt += f"≡ you) {my_cnt} | {my_mention}"
     return txt
 
 def save_entities(msg):
@@ -198,50 +162,266 @@ def save_entities(msg):
         res.append(en)
     return res
 
-def restore_entities(data):
-    res=[]
-    for en in data:
-        try:
-            kw={"type":en["type"],"offset":en["offset"],"length":en["length"]}
-            if "url" in en:
-                kw["url"]=en["url"]
-            if "custom_emoji_id" in en:
-                kw["custom_emoji_id"]=en["custom_emoji_id"]
-            res.append(MessageEntity(**kw))
-        except:
-            pass
-    return res
-
 def smart_replace(text, name, rank_raw, rank_badge, count, pos):
     if not text:
         return text
-    text = text.replace("{الرتبة}", rank_badge).replace("{رتبته}", rank_badge).replace("{رتبتي}", rank_badge)
-    text = text.replace("{الرتبة_بدون}", rank_raw)
-    text = text.replace("{التفاعل}", str(count)).replace("{تفاعلي}", str(count)).replace("{تفاعله}", str(count))
-    text = text.replace("{الترتيب}", str(pos)).replace("{ترتيبي}", str(pos)).replace("{الرتيب}", str(pos))
-    text = text.replace("{الاسم}", name).replace("{فلان}", name).replace("{المستخدم}", name)
+    text = re.sub(r"「\s*」", f"「 {name} 」", text)
+    text = re.sub(r"「\s*ذا\s*」", f"「 {name} 」", text)
+    text = text.replace("{الرتبة}", rank_badge).replace("{التفاعل}", str(count)).replace("{الترتيب}", str(pos)).replace("{الرتيب}", str(pos))
+    text = text.replace("{الاسم}", name).replace("{المستخدم}", name)
     text = re.sub(r'←\s*الرتبة\b', f'← {rank_badge}', text)
-    text = re.sub(r'↤\s*الرتبة\b', f'↤ {rank_badge}', text)
     text = re.sub(r'←\s*التفاعل\b', f'← {count}', text)
-    text = re.sub(r'↤\s*التفاعل\b', f'↤ {count}', text)
-    text = re.sub(r'←\s*الرتيب\b', f'← {pos}', text)
-    text = re.sub(r'↤\s*الرتيب\b', f'↤ {pos}', text)
-    text = re.sub(r'←\s*الترتيب\b', f'← {pos}', text)
-    text = text.replace("「 」", f"「 {name} 」").replace("「」", f"「 {name} 」")
-    text = re.sub(r'「\s*ذا\s*」', f'「 {name} 」', text)
     return text
 
-waiting={}
-pending={}
-waiting_rank={}
+# ===== قوائم الازرار =====
+def get_private_menu():
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("➕ اضف امر", callback_data="p_add"),
+        InlineKeyboardButton("➖ احذف امر", callback_data="p_del")
+    )
+    markup.add(
+        InlineKeyboardButton("📜 اوامري", callback_data="p_my"),
+        InlineKeyboardButton("🔒 قائمة الاقفال", callback_data="p_locks")
+    )
+    markup.add(
+        InlineKeyboardButton("💬 المتفاعلين", callback_data="p_top"),
+        InlineKeyboardButton("👥 الرتب", callback_data="p_ranks")
+    )
+    markup.add(
+        InlineKeyboardButton("📁 الملفات", callback_data="p_files"),
+        InlineKeyboardButton("⚙️ الإعدادات", callback_data="p_settings")
+    )
+    markup.add(
+        InlineKeyboardButton("• إغلاق •", callback_data="menu_close")
+    )
+    return markup
 
-@bot.message_handler(chat_types=['private'],func=lambda m:m.from_user.id==OWNER_BOT_ID,content_types=['text','photo','sticker','animation','video','voice','document','audio'])
-def private_lab(m):
+def get_private_back():
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(InlineKeyboardButton("• رجوع للقائمة •", callback_data="p_main"))
+    markup.add(InlineKeyboardButton("• إغلاق •", callback_data="menu_close"))
+    return markup
+
+def get_main_menu():
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("التفعيل والتعطيل", callback_data="menu_toggle"),
+        InlineKeyboardButton("القفل والفتح", callback_data="menu_lock")
+    )
+    markup.add(
+        InlineKeyboardButton("التسلية والخدمية", callback_data="menu_fun"),
+        InlineKeyboardButton("ادارة القروب", callback_data="menu_admin")
+    )
+    markup.add(InlineKeyboardButton("اوامر Dev", callback_data="menu_dev"))
+    markup.add(InlineKeyboardButton("الإعدادات", callback_data="menu_settings"))
+    markup.add(InlineKeyboardButton("• إغلاق •", callback_data="menu_close"))
+    return markup
+
+def get_section_keyboard():
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(InlineKeyboardButton("• رجوع •", callback_data="menu_main"))
+    markup.add(InlineKeyboardButton("• إغلاق •", callback_data="menu_close"))
+    return markup
+
+COMMANDS_TEXT = {
+    "menu_lock": "• القفل والفتح 🔒\n\nقفل امر X / فتح امر X",
+    "menu_toggle": "• التفعيل والتعطيل ⚙️",
+    "menu_fun": "• التسلية والخدمية 🎮\n\nرتبتي / رتبته / المتفاعلين مع منشن ازرق\nالاوامر - قائمة الاوامر",
+    "menu_admin": "• ادارة القروب 👮‍♂️\n\nرفع مميز, ادمن, مدير, منشئ, مالك, M, MY, Dev\nتقييد / مق / كتم (بالرد)\n\n• اضف امر → يخليك تسوي اختصار",
+    "menu_dev": "• اوامر Dev 🛠️\n\nاضف امر X -> Y\n{الاسم} {الرتبة} {التفاعل}",
+    "menu_settings": "• الإعدادات ⚙️"
+}
+
+@bot.callback_query_handler(func=lambda call: True)
+def handle_callback(call):
+    try:
+        data = call.data
+        chat_id = call.message.chat.id
+        msg_id = call.message.message_id
+        user_id = call.from_user.id
+
+        if data == "menu_close":
+            try:
+                bot.delete_message(chat_id, msg_id)
+            except:
+                bot.edit_message_text("تم الإغلاق •", chat_id, msg_id)
+            return
+
+        # ===== قائمة الخاص =====
+        if data == "p_main":
+            txt = f"""👋 اهلا يا {call.from_user.first_name}
+
+≡ قائمة التحكم الخاصة ببوت SRDT
+
+• عدد اوامرك: {len(custom)}
+• الاوامر المقفلة: {len(locked)}
+• التخزين: {BASE_DIR}
+
+اختر من القائمة:"""
+            bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_menu())
+            return
+
+        if data == "p_add":
+            bot.edit_message_text("➕ لإضافة امر جديد:\n\n• اكتب: اضف امر (لحاله) → نظام Soul\n• او: اضف امر X -> Y\n• او: اضف امر X ثم ارسل الشكل\n\nمثال:\nاضف امر\nثم تقييد\nثم مق\n\nراح يصير مق اختصار لتقييد", chat_id, msg_id, reply_markup=get_private_back())
+            return
+
+        if data == "p_del":
+            bot.edit_message_text("➖ لحذف امر:\n\nاكتب:\nاحذف امر: اسم الامر\n\nمثال:\nاحذف امر: مق\nاحذف امر: رفع Dev", chat_id, msg_id, reply_markup=get_private_back())
+            return
+
+        if data == "p_my":
+            if not custom:
+                txt = "📜 ما عندك اوامر بعد\n\nاضف اول امر بكتابة:\nاضف امر"
+            else:
+                txt = f"📜 اوامرك ({len(custom)}):\n─────────────\n"
+                for k in list(custom.keys())[:30]:
+                    txt += f"• {k}\n"
+                if len(custom) > 30:
+                    txt += f"\n... و {len(custom)-30} امر اخر"
+            bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_back())
+            return
+
+        if data == "p_locks":
+            if not locked:
+                txt = "🔒 ما فيه اوامر مقفلة"
+            else:
+                txt = f"🔒 الاوامر المقفلة ({len(locked)}):\n─────────────\n"
+                for k,v in locked.items():
+                    txt += f"• {k} → {v}\n"
+                txt += "\nلفتح امر:\nفتح امر: اسم الامر"
+            bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_back())
+            return
+
+        if data == "p_top":
+            bot.edit_message_text("💬 المتفاعلين:\n\nهذا الأمر يشتغل في القروب فقط\nاكتب في القروب:\nالمتفاعلين / مت / توب\n\nمع منشن ازرق 🔵", chat_id, msg_id, reply_markup=get_private_back())
+            return
+
+        if data == "p_ranks":
+            txt = """👥 الرتب المتاحة:
+
+• مميز (1)
+• ادمن (2)
+• مدير (3)
+• منشئ (4)
+• منشئ اساسي (5)
+• مالك (6)
+• مالك اساسي (7)
+• مالك المجموعه (8)
+• M (9)
+• MY (10) 🎖️
+• Dev2 (11) 🎖️
+• Dev (12) 🎖️
+
+شارة 🎖️ فقط MY وفوق"""
+            bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_back())
+            return
+
+        if data == "p_files":
+            files = []
+            for p in [FILE, LOCK_FILE, RANKS_FILE, TOP_FILE, SETTINGS_FILE]:
+                status = "✅ موجود" if os.path.exists(p) else "❌ مو موجود"
+                try:
+                    size = os.path.getsize(p) if os.path.exists(p) else 0
+                    files.append(f"{os.path.basename(p)}: {status} ({size} byte)")
+                except:
+                    files.append(f"{os.path.basename(p)}: {status}")
+            txt = f"📁 حالة الملفات:\nBASE: {BASE_DIR}\n─────────────\n" + "\n".join(files)
+            txt += f"\n\n💾 Disk: {'✅ /data موجود - الحفظ دائم' if os.path.exists('/data') else '❌ /data مو موجود - لازم تضيف Disk في Render'}"
+            bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_back())
+            return
+
+        if data == "p_settings":
+            txt = f"""⚙️ الإعدادات:
+
+• رسالة خروج المطور:
+{settings.get('leave_dev_msg','')}
+
+لتغييرها اكتب:
+اضف رسالة خروج المطور
+ثم ارسل الرسالة الجديدة
+
+مثال:
+{{الاسم}} {{الرتبة}} {{التفاعل}}"""
+            bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_back())
+            return
+
+        # قوائم القروب
+        if data == "menu_main":
+            if chat_id < 0:  # قروب
+                bot.edit_message_text("قائمة الاوامر\n\n─────────────\n\n• اختر القسم وبتطلع لك اوامره", chat_id, msg_id, reply_markup=get_main_menu())
+            else:
+                txt = f"""👋 اهلا يا {call.from_user.first_name}
+
+≡ قائمة التحكم الخاصة ببوت SRDT
+
+• عدد اوامرك: {len(custom)}
+• الاوامر المقفلة: {len(locked)}"""
+                bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_menu())
+            return
+
+        if data in COMMANDS_TEXT:
+            bot.edit_message_text(COMMANDS_TEXT[data], chat_id, msg_id, reply_markup=get_section_keyboard())
+            return
+
+    except Exception as e:
+        print(f"callback error: {e}")
+
+waiting_alias = {}
+waiting = {}
+pending = {}
+waiting_rank = {}
+
+@bot.message_handler(chat_types=['private'],func=lambda m:m.from_user.id==OWNER_BOT_ID,content_types=['text'])
+def private_menu(m):
     uid=m.from_user.id
-    txt=(m.text or m.caption or "").strip()
+    txt=(m.text or "").strip()
 
-    if txt.startswith("قفل امر ") or txt.startswith("قفل أمر "):
-        cmd_text = txt.replace("قفل امر ","").replace("قفل أمر ","").strip()
+    # قائمة الخاص
+    if txt in ["/start","القائمة","القائمه","قائمتي","start","menu","الاوامر","اوامري"]:
+        welcome = f"""👋 اهلا يا {m.from_user.first_name} ²⁷
+
+≡ بوت SRDT - لوحة التحكم الخاصة
+
+─────────────
+• اوامرك: {len(custom)}
+• مقفلة: {len(locked)}
+• التخزين: {BASE_DIR}
+─────────────
+
+اختر من القائمة:"""
+        bot.send_message(m.chat.id, welcome, reply_markup=get_private_menu())
+        return
+
+    # نظام Soul - اضف امر لحاله
+    if txt == "اضف امر":
+        waiting_alias[uid] = {"step":"wait_old", "chat_type":"private"}
+        bot.reply_to(m, "≡ ارسل لي الامر القديم ...\n-")
+        return
+
+    if uid in waiting_alias and waiting_alias[uid]["chat_type"]=="private":
+        step = waiting_alias[uid]["step"]
+        if step=="wait_old":
+            old = txt
+            waiting_alias[uid]["old"] = old
+            waiting_alias[uid]["step"] = "wait_new"
+            bot.reply_to(m, "≡ ارسل الامر الجديد عشان احطه مكان القديم\n-")
+            return
+        elif step=="wait_new":
+            new = txt
+            old = waiting_alias[uid].get("old")
+            if old:
+                if old in custom:
+                    custom[new] = custom[old].copy() if isinstance(custom[old], dict) else custom[old]
+                else:
+                    custom[new] = {"type":"alias", "target":old, "text":old}
+                save_custom()
+                bot.reply_to(m, f"≡ تم حفظ الامر باسم ( {new} ) ✓\n-")
+            del waiting_alias[uid]
+            return
+
+    if txt.startswith("قفل امر "):
+        cmd_text = txt.replace("قفل امر ","").strip()
         parts = cmd_text.split()
         if len(parts) >= 2:
             possible_rank = normalize_rank(parts[-1])
@@ -274,53 +454,39 @@ def private_lab(m):
         return
 
     if txt.startswith("اضف رسالة خروج المطور"):
-        waiting[uid]={"step":"wait_reply","command":"leave_dev", "type":"leave_msg"}
+        waiting[uid]={"type":"leave_msg"}
         bot.reply_to(m, "تمام - ارسل رسالة خروج المطور:")
         return
 
     if uid in waiting and waiting[uid].get('type') == 'leave_msg':
-        if m.content_type=='text':
-            settings["leave_dev_msg"] = m.text
-            save_settings()
-            del waiting[uid]
-            preview = smart_replace(m.text, "محسن", "Dev", "Dev 🎖️", 500, 1)
-            bot.reply_to(m, f"✅ حفظت:\n\n{preview}")
-            return
+        settings["leave_dev_msg"] = m.text
+        save_settings()
+        del waiting[uid]
+        preview = smart_replace(m.text, "محسن", "Dev", "Dev 🎖️", 500, 1)
+        bot.reply_to(m, f"✅ حفظت:\n\n{preview}")
+        return
 
     if txt.startswith("اضف امر"):
         tmp=txt.replace("اضف امر:","").replace("اضف امر","").strip()
+        if not tmp:
+            return
         if "->" in tmp:
             a,b=tmp.split("->",1)
             trig=a.strip(); resp=b.strip()
             if trig and resp:
-                data={"type":"text","text":resp,"entities":save_entities(m),"file_id":None,"caption":"","caption_entities":[]}
+                data={"type":"text","text":resp,"entities":save_entities(m)}
                 pending[uid]={"t":trig,"data":data}
                 bot.reply_to(m,f"تمام - الامر: {trig}\nاكتب: ارفعه")
                 return
         else:
             cmd=tmp
-            if not cmd:
-                return
             waiting[uid]={"step":"wait_reply","command":cmd, "type":"normal"}
-            if cmd.startswith("رفع "):
-                bot.reply_to(m,f"تمام - الامر: {cmd} ²⁷\n\nارسل الشكل اللي تبيه:\n{{الاسم}} - {{الرتبة}} - {{التفاعل}}")
-            elif cmd in ["المتفاعلين","مت","توب"]:
-                bot.reply_to(m,f"تمام - الامر: {cmd}\n\nهذا امر المتفاعلين - يطلع توب 20 تلقائيا\n\nاذا تبي تغير شكله - ارسل الهيدر اللي تبيه، مثلا:\nتوب اكثر 20 متفاعلين بالقروب : 💬\n─────────────\n\n(البوت بيكمل القائمة تلقائيا)")
-            else:
-                bot.reply_to(m,f"تمام - الامر: {cmd}\nارسل الشكل - استخدم {{الرتبة}} {{التفاعل}} {{الترتيب}} {{الاسم}}")
+            bot.reply_to(m,f"تمام - الامر: {cmd}\nارسل الشكل - استخدم {{الاسم}} او 「 」")
             return
 
     if uid in waiting and waiting[uid]['step']=='wait_reply' and waiting[uid].get('type')=='normal':
         cmd=waiting[uid]['command']
-        ctype=m.content_type
-        if ctype=='text':
-            data={"type":"text","text":m.text,"entities":save_entities(m),"file_id":None,"caption":"","caption_entities":[]}
-        elif ctype=='photo':
-            data={"type":"photo","text":"","entities":[],"file_id":m.photo[-1].file_id,"caption":m.caption or "","caption_entities":save_entities(m)}
-        elif ctype=='sticker':
-            data={"type":"sticker","text":"","entities":[],"file_id":m.sticker.file_id,"caption":"","caption_entities":[]}
-        else:
-            data={"type":ctype,"text":m.text or m.caption or "","entities":save_entities(m),"file_id":getattr(getattr(m,ctype,None),'file_id',None),"caption":m.caption or "","caption_entities":save_entities(m)}
+        data={"type":"text","text":m.text,"entities":save_entities(m)}
         pending[uid]={"t":cmd,"data":data}
         del waiting[uid]
         bot.reply_to(m,f"تمام - محفوظ\nاكتب: ارفعه")
@@ -333,9 +499,7 @@ def private_lab(m):
         custom[t]=data
         save_custom()
         del pending[uid]
-        sample_text = data.get("text","") or data.get("caption","")
-        preview = smart_replace(sample_text, "نايف", "MY", "MY 🎖️", 422, 7)
-        bot.reply_to(m,f"✅ حفظت {t}\n\nالشكل:\n{sample_text}\n\nمثال:\n{preview}")
+        bot.reply_to(m,f"✅ حفظت {t}")
         return
 
     if txt.startswith("احذف امر"):
@@ -345,18 +509,6 @@ def private_lab(m):
             save_custom()
             bot.reply_to(m,f"✅ حذفت {cmd}")
         else:
-            try:
-                with open(FILE,'r',encoding='utf-8') as f:
-                    d=json.load(f)
-                    if cmd in d:
-                        del d[cmd]
-                        with open(FILE,'w',encoding='utf-8') as wf:
-                            json.dump(d,wf,ensure_ascii=False,indent=2)
-                        custom.pop(cmd, None)
-                        bot.reply_to(m,f"✅ حذفت {cmd}")
-                        return
-            except:
-                pass
             bot.reply_to(m,f"❌ {cmd} مو موجود")
         return
 
@@ -364,19 +516,28 @@ def private_lab(m):
 def on_left(m):
     try:
         left_user = m.left_chat_member
-        if not left_user:
-            return
-        if left_user.id == OWNER_BOT_ID:
-            chat_id = m.chat.id
+        if left_user and left_user.id == OWNER_BOT_ID:
             name = left_user.first_name or "المطور"
-            rank_raw = get_rank(left_user.id, chat_id)
-            rank_badge = get_rank_with_badge(left_user.id, chat_id)
-            cnt, pos = get_stats(chat_id, left_user.id)
+            rank_badge = get_rank_with_badge(left_user.id, m.chat.id)
+            cnt, pos = get_stats(m.chat.id, left_user.id)
             raw_msg = settings.get("leave_dev_msg", "≡ المطور غادر المجموعه 💔\n≡ {الاسم} ← {الرتبة}\n-")
-            final_msg = smart_replace(raw_msg, name, rank_raw, rank_badge, cnt, pos)
-            bot.send_message(chat_id, final_msg)
+            final_msg = smart_replace(raw_msg, name, "Dev", rank_badge, cnt, pos)
+            bot.send_message(m.chat.id, final_msg)
+    except:
+        pass
+
+def handle_builtin_restrict(m):
+    try:
+        if not m.reply_to_message:
+            bot.reply_to(m, "رد على الشخص واكتب تقييد / مق")
+            return
+        target_id = m.reply_to_message.from_user.id
+        bot.restrict_chat_member(m.chat.id, target_id, can_send_messages=False, until_date=int(time.time())+3600)
+        safe = html.escape(m.reply_to_message.from_user.first_name or "الشخص")
+        mention = f'<a href="tg://user?id={target_id}">{safe}</a>'
+        bot.send_message(m.chat.id, f"≡ تم تقييد المستخدم {mention} ✓", parse_mode="HTML", reply_to_message_id=m.message_id)
     except Exception as e:
-        print(f"leave error: {e}")
+        bot.reply_to(m, f"❌ ما قدرت اقيده - تأكد ان البوت مشرف")
 
 @bot.message_handler(content_types=['text','photo','sticker','animation','video','voice','document','audio'])
 def groups(m):
@@ -392,32 +553,55 @@ def groups(m):
     except:
         pass
 
-    # المتفاعلين - توب 20 - قبل كل شي
-    if text in ["المتفاعلين","مت","توب","متفاعلين","المتفاعلين ²⁷","٢٧ مت","توب المتفاعلين","توب اكثر 20 متفاعلين بالقروب","توب متفاعلين"]:
-        if text in locked:
-            req = locked[text]
-            if get_level(user_id,chat_id) < RANK_ORDER.get(req,0) and user_id!=OWNER_BOT_ID:
-                bot.reply_to(m,f"❌ امر {text} مقفول لرتبة {req} فقط")
-                return
-        
-        # اذا فيه شكل مخصص للمتفاعلين - نستخدمه كهيدر
-        if text in custom:
-            data=custom[text]
-            header = data.get("text","") or data.get("caption","")
-            top_list = get_top_list(chat_id, user_id, 20)
-            # اذا الشكل المخصص يحتوي توب - ندمجه
-            final = header + "\n\n" + top_list if "توب" not in header else top_list
-            bot.send_message(chat_id, final, reply_to_message_id=m.message_id)
-        else:
-            top_list = get_top_list(chat_id, user_id, 20)
-            bot.send_message(chat_id, top_list, reply_to_message_id=m.message_id)
+    key_alias = f"{chat_id}_{user_id}"
+    if text == "اضف امر":
+        if get_level(user_id, chat_id) < RANK_ORDER.get("ادمن",2) and user_id!=OWNER_BOT_ID:
+            bot.reply_to(m, "❌ تحتاج ادمن")
+            return
+        waiting_alias[key_alias] = {"step":"wait_old", "chat_type":"group", "chat_id":chat_id, "user_id":user_id}
+        bot.reply_to(m, "≡ ارسل لي الامر القديم ...\n-")
         return
 
-    if text.startswith("قفل امر ") or text.startswith("قفل أمر "):
-        if get_level(user_id,chat_id) < RANK_ORDER.get("Dev",12) and user_id!=OWNER_BOT_ID:
+    if key_alias in waiting_alias:
+        step = waiting_alias[key_alias]["step"]
+        if step=="wait_old":
+            waiting_alias[key_alias]["old"] = text
+            waiting_alias[key_alias]["step"] = "wait_new"
+            bot.reply_to(m, "≡ ارسل الامر الجديد عشان احطه مكان القديم\n-")
+            return
+        elif step=="wait_new":
+            new = text
+            old = waiting_alias[key_alias].get("old")
+            if old:
+                if old in custom:
+                    custom[new] = custom[old].copy() if isinstance(custom[old], dict) else custom[old]
+                else:
+                    custom[new] = {"type":"alias", "target":old, "text":old}
+                save_custom()
+                bot.reply_to(m, f"≡ تم حفظ الامر باسم ( {new} ) ✓\n-")
+            del waiting_alias[key_alias]
+            return
+
+    if text in ["تقييد","كتم","مق","اسكات"]:
+        if get_level(user_id, chat_id) < RANK_ORDER.get("ادمن",2) and user_id!=OWNER_BOT_ID:
+            return
+        handle_builtin_restrict(m)
+        return
+
+    if text in ["الاوامر","اوامر","قائمة الاوامر"]:
+        bot.send_message(chat_id, "قائمة الاوامر\n\n─────────────\n\n• اختر القسم وبتطلع لك اوامره", reply_markup=get_main_menu(), reply_to_message_id=m.message_id)
+        return
+
+    if text in ["المتفاعلين","مت","توب","متفاعلين"]:
+        top_txt = get_top_list_mention(chat_id, user_id)
+        bot.send_message(chat_id, top_txt, parse_mode="HTML", reply_to_message_id=m.message_id)
+        return
+
+    if text.startswith("قفل امر "):
+        if get_level(user_id,chat_id) < 12 and user_id!=OWNER_BOT_ID:
             bot.reply_to(m,"❌ فقط Dev")
             return
-        cmd_text = text.replace("قفل امر ","").replace("قفل أمر ","").strip()
+        cmd_text = text.replace("قفل امر ","").strip()
         parts = cmd_text.split()
         if len(parts) >= 2:
             possible_rank = normalize_rank(parts[-1])
@@ -464,72 +648,48 @@ def groups(m):
             save_ranks()
             cnt,pos=get_stats(chat_id,target_id)
             rank_badge = get_rank_with_badge(target_id, chat_id)
-            rank_raw = rank_name
+            safe_tname = html.escape(target_name)
+            mention = f'<a href="tg://user?id={target_id}">{safe_tname}</a>'
             full_cmd = f"رفع {rank_name}"
             if full_cmd in custom:
                 data=custom[full_cmd]
-                raw = data.get("text","") or data.get("caption","")
-                final = smart_replace(raw, target_name, rank_raw, rank_badge, cnt, pos)
-                try:
-                    if data.get("type")=="text":
-                        bot.send_message(chat_id, final, entities=restore_entities(data.get("entities",[])), reply_to_message_id=m.message_id)
-                    else:
-                        bot.send_message(chat_id, final, reply_to_message_id=m.message_id)
-                except:
-                    bot.send_message(chat_id, final, reply_to_message_id=m.message_id)
+                raw = data.get("text","") or ""
+                final = smart_replace(raw, target_name, rank_name, rank_badge, cnt, pos)
+                final = re.sub(r"「\s*」", f"「 {target_name} 」", final)
+                final_html = final.replace(target_name, mention) if target_name in final else final
+                if mention not in final_html and "「" in final_html:
+                    final_html = re.sub(r"「[^」]*」", f"「 {mention} 」", final_html, count=1)
+                bot.send_message(chat_id, final_html, parse_mode="HTML", reply_to_message_id=m.message_id)
             else:
-                bot.send_message(chat_id,f"≡ المستخدم ذا 「 {target_name} 」\n≡ تم رفعه الى {rank_badge}\n\n≡ رتبته هي ← {rank_badge}\n≡ رسائله بالتفاعل ← {cnt}\n≡ ترتيبه بالمتفاعلين ← {pos}\n-",reply_to_message_id=m.message_id)
+                bot.send_message(chat_id, f'≡ المستخدم ذا 「 {mention} 」\n≡ تم رفعه ✓\n≡ رتبته ← {rank_badge}\n≡ تفاعله ← {cnt}', parse_mode="HTML", reply_to_message_id=m.message_id)
             return
 
     if text.startswith("تنزيل ") and m.reply_to_message:
         target_id=m.reply_to_message.from_user.id
-        target_name=m.reply_to_message.from_user.first_name or "الشخص"
         cs=str(chat_id); us=str(target_id)
         if cs in user_ranks and us in user_ranks[cs]:
             del user_ranks[cs][us]
             save_ranks()
-            bot.send_message(chat_id,f"✅ تم تنزيل {target_name}",reply_to_message_id=m.message_id)
+            safe = html.escape(m.reply_to_message.from_user.first_name or "الشخص")
+            mention = f'<a href="tg://user?id={target_id}">{safe}</a>'
+            bot.send_message(chat_id, f"✅ تم تنزيل {mention}", parse_mode="HTML", reply_to_message_id=m.message_id)
         return
 
-    if text in ["رتبتي","رتبتي ²⁷","رتبته","رتبته ²⁷","رتبه","رتبة"]:
+    if text in ["رتبتي","رتبته","رتبه","رتبة"]:
         target_id = user_id
         target_name = first_name
-        is_ratbto = text in ["رتبته","رتبته ²⁷","رتبه","رتبة"]
+        is_ratbto = text in ["رتبته","رتبه","رتبة"]
         if is_ratbto:
             if not m.reply_to_message:
                 bot.reply_to(m,"سوي ريبلاي على الشخص واكتب: رتبته")
                 return
-            target=m.reply_to_message.from_user
-            target_id=target.id
-            target_name=target.first_name or "الشخص"
-
-        if text in custom or (is_ratbto and "رتبته" in custom) or (not is_ratbto and "رتبتي" in custom):
-            key = text if text in custom else ("رتبته" if is_ratbto else "رتبتي")
-            if key in custom:
-                data=custom[key]
-                rank_raw=get_rank(target_id,chat_id)
-                rank_badge=get_rank_with_badge(target_id,chat_id)
-                cnt,pos=get_stats(chat_id,target_id)
-                raw = data.get("text","") or data.get("caption","")
-                final = smart_replace(raw, target_name, rank_raw, rank_badge, cnt, pos)
-                try:
-                    if data.get("type")=="text":
-                        bot.send_message(chat_id, final, entities=restore_entities(data.get("entities",[])), reply_to_message_id=m.message_id)
-                    elif data.get("type")=="photo":
-                        bot.send_photo(chat_id, data["file_id"], caption=final, reply_to_message_id=m.message_id)
-                    else:
-                        bot.reply_to(m, final)
-                except:
-                    bot.reply_to(m, final)
-                return
-
-        rank_raw=get_rank(target_id,chat_id)
+            target_id=m.reply_to_message.from_user.id
+            target_name=m.reply_to_message.from_user.first_name or "الشخص"
         rank_badge=get_rank_with_badge(target_id,chat_id)
         cnt,pos=get_stats(chat_id,target_id)
-        if is_ratbto:
-            bot.reply_to(m,f"≡ رتبة {target_name} هي ← {rank_badge}\n\n≡ رسائله بالتفاعل ← {cnt}\n≡ ترتيبه بالمتفاعلين ← {pos}\n-")
-        else:
-            bot.reply_to(m,f"≡ رتبتك هي ← {rank_badge}\n\n≡ رسائلك بالتفاعل ← {cnt}\n≡ ترتيبك بالمتفاعلين ← {pos}\n-")
+        safe = html.escape(target_name)
+        mention = f'<a href="tg://user?id={target_id}">{safe}</a>'
+        bot.send_message(chat_id, f"≡ رتبة {mention} هي ← {rank_badge}\n≡ رسائله ← {cnt}\n≡ ترتيبه ← {pos}\n-", parse_mode="HTML", reply_to_message_id=m.message_id)
         return
 
     if text in custom:
@@ -539,35 +699,33 @@ def groups(m):
                 bot.reply_to(m,f"❌ امر {text} مقفول لرتبة {req} فقط")
                 return
         data=custom[text]
-        rank_raw=get_rank(user_id,chat_id)
-        rank_badge=get_rank_with_badge(user_id,chat_id)
-        cnt,pos=get_stats(chat_id,user_id)
+        if isinstance(data, dict) and data.get("type")=="alias":
+            target = data.get("target","")
+            if target in ["تقييد","كتم","مق","اسكات"]:
+                handle_builtin_restrict(m)
+                return
         tname = first_name
+        t_id = user_id
         if m.reply_to_message:
             tname = m.reply_to_message.from_user.first_name or "الشخص"
-            rank_raw = get_rank(m.reply_to_message.from_user.id, chat_id)
-            rank_badge = get_rank_with_badge(m.reply_to_message.from_user.id, chat_id)
-            cnt,pos = get_stats(chat_id, m.reply_to_message.from_user.id)
+            t_id = m.reply_to_message.from_user.id
         if isinstance(data,dict):
-            try:
-                ctype=data.get("type","text")
-                if ctype=="text":
-                    raw_text = data.get("text","")
-                    final_text = smart_replace(raw_text, tname, rank_raw, rank_badge, cnt, pos)
+            raw_text = data.get("text","")
+            if raw_text:
+                rank_badge=get_rank_with_badge(t_id,chat_id)
+                cnt,pos=get_stats(chat_id,t_id)
+                final_text = smart_replace(raw_text, tname, get_rank(t_id,chat_id), rank_badge, cnt, pos)
+                final_text = re.sub(r"「\s*」", f"「 {tname} 」", final_text)
+                if tname in final_text:
+                    safe = html.escape(tname)
+                    mention = f'<a href="tg://user?id={t_id}">{safe}</a>'
+                    final_html = final_text.replace(tname, mention)
+                    bot.send_message(chat_id, final_html, parse_mode="HTML", reply_to_message_id=m.message_id)
+                else:
                     bot.send_message(chat_id, final_text, reply_to_message_id=m.message_id)
-                elif ctype=="photo":
-                    cap = data.get("caption","")
-                    final_cap = smart_replace(cap, tname, rank_raw, rank_badge, cnt, pos)
-                    bot.send_photo(chat_id, data["file_id"], caption=final_cap, reply_to_message_id=m.message_id)
-                elif ctype=="sticker":
-                    bot.send_sticker(chat_id, data["file_id"], reply_to_message_id=m.message_id)
-            except:
-                raw_text = data.get("text","") or data.get("caption","")
-                final_text = smart_replace(raw_text, tname, rank_raw, rank_badge, cnt, pos)
-                bot.reply_to(m, final_text)
-        return
+                return
 
-print(f"READY - TOP 20 + RAF3 SHAPE + BADGE MY+")
+print(f"READY - PRIVATE MENU + SOUL ALIAS")
 
 while True:
     try:
