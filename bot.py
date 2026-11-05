@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-# يستقبل الرموز المميزة + التوجيه + صور + تقييد حقيقي + فلان
-# يدعم ايموجي بريميوم custom_emoji + رموز مثل ²⁷ ↦ •
+# FINAL CLEAN - توكن جديد + بدون A_TOOLSx2 + رموز مميزة + توجيه + تقييد حقيقي
+# Token: 8769832522:AAF-qXZfMQ75Z1XfnLN2hA-G90qP0xYKzTA
+# ID: 829238313
 
 import os
 from flask import Flask
@@ -9,30 +10,38 @@ import threading
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
-    return "OK - SPECIAL SYMBOLS 829238313", 200
+    return "OK - FINAL CLEAN 829238313 - NEW TOKEN", 200
 @flask_app.route('/health')
 def health():
     return "OK", 200
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
+    print(f"Flask on {port} - NEW TOKEN")
     flask_app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 threading.Thread(target=run_flask, daemon=True).start()
 
 import telebot, json, time, requests
 from telebot.types import ChatPermissions, MessageEntity
 
-BOT_TOKEN = "8769832522:AAF1yu7T8C-DQEfz6ggzvidtKrs_1SUi7Gk"
+# التوكن الجديد - نظيف بدون A_TOOLSx2
+BOT_TOKEN = "8769832522:AAF-qXZfMQ75Z1XfnLN2hA-G90qP0xYKzTA"
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 OWNER_BOT_ID = 829238313
 
-print(f"SPECIAL SYMBOLS READY - {OWNER_BOT_ID}")
+print(f"=== FINAL CLEAN - NEW TOKEN ===")
+print(f"Token: {BOT_TOKEN[:30]}...")
+print(f"Owner: {OWNER_BOT_ID}")
+print(f"NO A_TOOLSx2 ✅")
 
 try:
+    print("🔧 حذف Webhook + تنظيف...")
     bot.remove_webhook()
     time.sleep(1)
     requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=True", timeout=10)
-except:
-    pass
+    print("✅ Webhook محذوف - البوت القديم مات")
+    time.sleep(1)
+except Exception as e:
+    print(f"Webhook: {e}")
 
 FILE = 'custom_commands.json'
 custom = {}
@@ -57,26 +66,17 @@ def get_target_name(message):
         return u.first_name or "الشخص", u.id, u
 
 def extract_entities(msg):
-    """يستخرج كل الانتيتيز بما فيها الرموز المميزة custom_emoji"""
     entities = []
-    # نص او كابشن
     src_entities = None
     if msg.entities:
         src_entities = msg.entities
     elif msg.caption_entities:
         src_entities = msg.caption_entities
-    
     if src_entities:
         for e in src_entities:
-            ent = {
-                "type": e.type,
-                "offset": e.offset,
-                "length": e.length
-            }
+            ent = {"type": e.type, "offset": e.offset, "length": e.length}
             if e.url:
                 ent["url"] = e.url
-            if e.user:
-                ent["user"] = {"id": e.user.id}
             if hasattr(e, 'custom_emoji_id') and e.custom_emoji_id:
                 ent["custom_emoji_id"] = e.custom_emoji_id
             if hasattr(e, 'language') and e.language:
@@ -85,17 +85,11 @@ def extract_entities(msg):
     return entities
 
 def format_text_with_entities(template, message, template_entities=None):
-    """يبدل {فلان} ويعدل الانتيتيز عشان الرموز المميزة ما تخرب"""
     name, uid, user = get_target_name(message)
     username = f"@{user.username}" if user.username else name
-    
-    # النص الاصلي
     res = template
-    old_len_flan = len("{فلان}")
-    new_len = len(name)
-    diff = new_len - old_len_flan
+    new_entities = [dict(e) for e in (template_entities or [])]
     
-    # نبدل كل الصيغ
     replacements = [
         ("{فلان}", name),
         ("{الاسم}", name),
@@ -103,40 +97,28 @@ def format_text_with_entities(template, message, template_entities=None):
         ("{المعرف}", username),
         ("فلان", name),
         ("Løst", name),
+        ("L0st", name),
     ]
-    
-    # نحسب اين صار التبديل عشان نعدل الانتيتيز
-    new_entities = []
-    if template_entities:
-        # نسخ
-        new_entities = [dict(e) for e in template_entities]
     
     for old, new in replacements:
         if old in res:
-            # نعدل الانتيتيز قبل التبديل
             idx = res.find(old)
             while idx != -1:
-                # كل انتيتي بعد هذا الموضع يتحرك
                 for ent in new_entities:
                     if ent["offset"] > idx:
                         ent["offset"] += len(new) - len(old)
                     elif ent["offset"] <= idx and ent["offset"] + ent["length"] > idx:
-                        # انتيتي يغطي مكان التبديل - نعدل طوله
                         ent["length"] += len(new) - len(old)
                 res = res.replace(old, new, 1)
                 idx = res.find(old, idx + len(new))
-            # بعد ما خلصنا كل old نفسه
-            break  # نبدل اول واحد بس عشان ما نلخبط
-    
+            break
     return res, new_entities, name
 
 def send_with_entities(chat_id, text, entities, reply_to_msg_id):
-    """يرسل نص مع انتيتيز (يحفظ الرموز المميزة)"""
     if not entities:
         bot.send_message(chat_id, text, reply_to_message_id=reply_to_msg_id)
         return
     try:
-        # حول dict الى MessageEntity
         tele_entities = []
         for e in entities:
             me = MessageEntity(
@@ -150,7 +132,7 @@ def send_with_entities(chat_id, text, entities, reply_to_msg_id):
             tele_entities.append(me)
         bot.send_message(chat_id, text, entities=tele_entities, reply_to_message_id=reply_to_msg_id)
     except Exception as ex:
-        print(f"entities send failed {ex} - fallback plain")
+        print(f"entities failed {ex}")
         bot.send_message(chat_id, text, reply_to_message_id=reply_to_msg_id)
 
 @bot.message_handler(chat_types=['private'], func=lambda m: m.from_user.id == OWNER_BOT_ID, content_types=['text','photo','video','document','sticker','voice','animation'])
@@ -158,23 +140,12 @@ def private_lab(m):
     uid = m.from_user.id
     text_content = (m.text or m.caption or "").strip()
 
-    # 1- اذا ينتظر رد
     if uid in waiting and waiting[uid]['step'] == 'wait_reply':
         cmd = waiting[uid]['command']
-        
-        # استخرج الانتيتيز (الرموز المميزة)
         entities = extract_entities(m)
-        has_forward = bool(m.forward_from or m.forward_from_chat)
         
         if m.content_type == 'text':
-            data = {
-                "type": "text", 
-                "text": m.text, 
-                "entities": entities,
-                "file_id": None, 
-                "caption": "",
-                "caption_entities": []
-            }
+            data = {"type": "text", "text": m.text, "entities": entities, "file_id": None, "caption": "", "caption_entities": []}
         elif m.content_type == 'photo':
             cap_entities = []
             if m.caption_entities:
@@ -185,14 +156,7 @@ def private_lab(m):
                     if e.url:
                         ent["url"] = e.url
                     cap_entities.append(ent)
-            data = {
-                "type": "photo", 
-                "text": "", 
-                "entities": [],
-                "file_id": m.photo[-1].file_id, 
-                "caption": m.caption or "",
-                "caption_entities": cap_entities
-            }
+            data = {"type": "photo", "text": "", "entities": [], "file_id": m.photo[-1].file_id, "caption": m.caption or "", "caption_entities": cap_entities}
         elif m.content_type == 'video':
             cap_entities = []
             if m.caption_entities:
@@ -201,30 +165,14 @@ def private_lab(m):
                     if hasattr(e, 'custom_emoji_id') and e.custom_emoji_id:
                         ent["custom_emoji_id"] = e.custom_emoji_id
                     cap_entities.append(ent)
-            data = {
-                "type": "video", 
-                "text": "", 
-                "entities": [],
-                "file_id": m.video.file_id, 
-                "caption": m.caption or "",
-                "caption_entities": cap_entities
-            }
+            data = {"type": "video", "text": "", "entities": [], "file_id": m.video.file_id, "caption": m.caption or "", "caption_entities": cap_entities}
         else:
-            data = {
-                "type": m.content_type, 
-                "text": m.text or m.caption or "", 
-                "entities": entities,
-                "file_id": getattr(m, m.content_type).file_id if hasattr(m, m.content_type) and hasattr(getattr(m, m.content_type), 'file_id') else None,
-                "caption": m.caption or "",
-                "caption_entities": []
-            }
+            data = {"type": m.content_type, "text": m.text or m.caption or "", "entities": entities, "file_id": getattr(m, m.content_type).file_id if hasattr(m, m.content_type) and hasattr(getattr(m, m.content_type), 'file_id') else None, "caption": m.caption or "", "caption_entities": []}
         
         pending[uid] = {"t": cmd, "data": data}
         del waiting[uid]
         
-        bot.reply_to(m, f"تمام ✅\nالأمر: {cmd}\nالنوع: {data['type']}\nالرموز المميزة: {'✅ محفوظة' if entities or data.get('caption_entities') else 'لا يوجد'}\n\nتجربة:")
-        
-        # معاينة مع الرموز المميزة
+        bot.reply_to(m, f"تمام ✅\nالأمر: {cmd}\nالنوع: {data['type']}\nالرموز المميزة: {'✅' if entities or data.get('caption_entities') else 'لا يوجد'}\n\nتجربة:")
         if data["type"] == "text":
             formatted, new_ents, _ = format_text_with_entities(data["text"], m, data["entities"])
             send_with_entities(m.chat.id, formatted, new_ents, None)
@@ -235,7 +183,6 @@ def private_lab(m):
             else:
                 new_ents = []
             try:
-                # ارسل مع انتيتيز الكابشن
                 if new_ents:
                     tele_ents = [MessageEntity(type=e["type"], offset=e["offset"], length=e["length"], url=e.get("url"), custom_emoji_id=e.get("custom_emoji_id")) for e in new_ents]
                     bot.send_photo(m.chat.id, data["file_id"], caption=cap, caption_entities=tele_ents)
@@ -244,10 +191,9 @@ def private_lab(m):
             except:
                 bot.send_photo(m.chat.id, data["file_id"], caption=cap)
         
-        bot.send_message(m.chat.id, "عجبك؟ اكتب: ارفعه\nتقدر تستخدم {فلان} حتى مع الرموز المميزة")
+        bot.send_message(m.chat.id, "عجبك؟ اكتب: ارفعه")
         return
 
-    # اضافة امر
     if text_content.startswith("اضف امر"):
         tmp = text_content.replace("اضف امر:", "").replace("اضف امر", "").strip()
         if "->" in tmp:
@@ -257,7 +203,7 @@ def private_lab(m):
                 entities = extract_entities(m)
                 data = {"type": "text", "text": resp, "entities": entities, "file_id": None, "caption": "", "caption_entities": []}
                 pending[uid]={"t":trig,"data":data}
-                bot.reply_to(m, f"تمام ✅\nالأمر: {trig}\nالرد: {resp}\nالرموز: {'✅' if entities else 'لا يوجد'}\n\nتجربة:")
+                bot.reply_to(m, f"تمام ✅\nالأمر: {trig}\nالرد: {resp}\n\nتجربة:")
                 formatted, new_ents, _ = format_text_with_entities(resp, m, entities)
                 send_with_entities(m.chat.id, formatted, new_ents, None)
                 bot.send_message(m.chat.id, "اكتب: ارفعه")
@@ -268,7 +214,7 @@ def private_lab(m):
                 bot.reply_to(m, "اكتب: اضف امر: المطور")
                 return
             waiting[uid] = {"step": "wait_reply", "command": cmd}
-            bot.reply_to(m, f"تمام - الأمر: {cmd}\n\nالحين ارسل الرد:\n• نص عادي\n• نص مع رموز مميزة ²⁷ ↦ •\n• ايموجي مميز بريميوم\n• صورة + كلام\n• توجيه رسالة\n\nكلها تنحفظ بنفس التنسيق ✅")
+            bot.reply_to(m, f"تمام - الأمر: {cmd}\n\nالحين ارسل الرد:\n• نص مع رموز مميزة ²⁷ ↦ •\n• ايموجي بريميوم\n• صورة + كلام\n• توجيه\n\nكلها تنحفظ ✅")
             return
 
     if text_content in ["ارفعه","ارفعه للسيرفر","احفظه"]:
@@ -277,7 +223,7 @@ def private_lab(m):
             return
         t=pending[uid]["t"]; data=pending[uid]["data"]
         custom[t]=data; save_custom(); del pending[uid]
-        bot.reply_to(m, f"✅ تم حفظه!\n{t} -> {data['type']} مع رموز مميزة ✅\nيشتغل في كل القروبات 🔥")
+        bot.reply_to(m, f"✅ تم حفظه!\n{t} -> {data['type']} ✅\nيشتغل في كل القروبات 🔥")
         return
 
     if text_content in ["الغاء","الغه"]:
@@ -289,13 +235,12 @@ def private_lab(m):
         if not custom:
             bot.reply_to(m, "ما اضفت شي")
             return
-        txt="📋 اوامرك (مع رموز مميزة):\n\n"
+        txt="📋 اوامرك:\n\n"
         for k,v in custom.items():
             if isinstance(v, str):
                 txt+=f"• {k} -> {v}\n"
             else:
-                has_emoji = "✅" if v.get("entities") or v.get("caption_entities") else ""
-                txt+=f"• {k} -> [{v.get('type')}] {v.get('text','')[:20]} {has_emoji}\n"
+                txt+=f"• {k} -> [{v.get('type')}] {v.get('text','')[:30]}\n"
         bot.reply_to(m, txt)
         return
 
@@ -310,21 +255,23 @@ def private_lab(m):
 
     if text_content in ["/start","start","بدا"]:
         bot.reply_to(m, f"""اهلا - {uid} ✅
-يدعم الرموز المميزة + التوجيه
+التوكن الجديد شغال - بدون A_TOOLSx2
+
+يدعم:
+• الرموز المميزة ²⁷ ↦ • ⭐
+• ايموجي بريميوم
+• التوجيه + صور
 
 اضافة:
 اضف امر: المطور
-[ارسل نص مع رموز ²⁷ ↦ • او ايموجي مميز او صورة]
+[ارسل نص مع رموز او صورة]
+ارفعه
 
-مثال:
-Owner Group ↦ - darkness ²⁷
-USE ↦ {{فلان}}
-Bio ↦ https://t.me/xxx
-
-{{فلان}} يتبدل بالاسم + الرموز تنحفظ ✅
+تقييد حقيقي:
+تقييد - بالرد يقيده + اسم متغير {{فلان}}
+فك التقييد
 
 اوامري - عرض
-احذف امر: المطور - حذف
 """)
         return
 
@@ -358,7 +305,7 @@ def groups(m):
             else:
                 bot.reply_to(m, f"• المستخدم ذا {target_name} قيده 🔒")
         except Exception as e:
-            bot.reply_to(m, f"ما قدرت اقيده\n{e}")
+            bot.reply_to(m, f"ما قدرت اقيده - البوت لازم مشرف\n{e}")
         return
 
     if text in ["فك التقييد","فك تقييد","فك الكتم"]:
@@ -387,7 +334,6 @@ def groups(m):
             entities = data.get("entities") or []
             cap_entities = data.get("caption_entities") or []
             
-            # بدل الاسم
             if txt:
                 txt, new_ents, _ = format_text_with_entities(txt, m, entities)
                 entities = new_ents
@@ -412,14 +358,23 @@ def groups(m):
                 print(f"send err {e}")
                 bot.reply_to(m, txt or cap)
 
-print("READY - SPECIAL SYMBOLS")
+print("="*50)
+print("✅ FINAL CLEAN - NEW TOKEN")
+print("✅ 8769832522:AAF-qXZf...")
+print("✅ NO A_TOOLSx2")
+print("✅ SPECIAL SYMBOLS ²⁷ ↦ •")
+print("✅ FORWARD + PHOTO")
+print("✅ REAL RESTRICT + {فلان}")
+print("="*50)
 
 while True:
     try:
+        print("✅ Starting polling with NEW TOKEN...")
         bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True, none_stop=True)
     except Exception as e:
         err=str(e)
         if "409" in err or "Conflict" in err:
+            print("⚠️ 409 - انتظار...")
             time.sleep(10)
             try:
                 bot.remove_webhook()
