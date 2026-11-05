@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# تقييد حقيقي + يغير الاسم تلقائي + بدون A_TOOLSx2
+# ULTRA CLEAN - يفهم فلان حتى بدون اقواس + تقييد حقيقي
 
 import os
 from flask import Flask
@@ -8,7 +7,7 @@ import threading
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
-    return "OK - REAL RESTRICT 829238313", 200
+    return "OK - FLAN FIX 829238313", 200
 @flask_app.route('/health')
 def health():
     return "OK", 200
@@ -24,15 +23,14 @@ BOT_TOKEN = "8769832522:AAF1yu7T8C-DQEfz6ggzvidtKrs_1SUi7Gk"
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 OWNER_BOT_ID = 829238313
 
-print(f"=== REAL RESTRICT - ID {OWNER_BOT_ID} ===")
+print(f"FLAN FIX - ID {OWNER_BOT_ID}")
 
 try:
     bot.remove_webhook()
     time.sleep(1)
     requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=True", timeout=10)
-    print("✅ Webhook محذوف")
-except Exception as e:
-    print(e)
+except:
+    pass
 
 custom = {}
 FILE = 'custom_commands.json'
@@ -49,7 +47,6 @@ waiting = {}
 pending = {}
 
 def get_target_name(message):
-    """يجيب اسم الشخص اللي رديت عليه - او نفسك اذا ما رديت"""
     if message.reply_to_message:
         u = message.reply_to_message.from_user
         return u.first_name or "الشخص", u.id, u
@@ -61,7 +58,25 @@ def format_reply(template, message):
     name, uid, user = get_target_name(message)
     username = f"@{user.username}" if user.username else name
     res = template
-    res = res.replace("{الاسم}", name).replace("{فلان}", name).replace("{name}", name).replace("{المعرف}", username)
+    
+    # يبدل كل الصيغ - حتى لو بدون اقواس
+    # مع اقواس
+    res = res.replace("{فلان}", name)
+    res = res.replace("{الاسم}", name)
+    res = res.replace("{name}", name)
+    res = res.replace("{المعرف}", username)
+    res = res.replace("{username}", username)
+    res = res.replace("{الايدي}", str(uid))
+    
+    # بدون اقواس - عشان يفهم فلان حتى لو كتبته لحاله
+    # نبدل "فلان" بس اذا كان كلمة لحالها
+    res = res.replace("فلان", name)
+    
+    # نبدل Løst القديم اذا باقي
+    res = res.replace("Løst", name)
+    res = res.replace("L0st", name)
+    res = res.replace("لوسط", name)
+    
     return res, uid, user
 
 @bot.message_handler(chat_types=['private'], func=lambda m: m.from_user.id == OWNER_BOT_ID)
@@ -77,60 +92,57 @@ def private_lab(m):
         bot.reply_to(m, f"تمام ✅\nالأمر: {cmd}\nالرد: {reply_text}\n\nتجربة:")
         formatted, _, _ = format_reply(reply_text, m)
         bot.send_message(m.chat.id, formatted)
-        bot.send_message(m.chat.id, "اكتب: ارفعه")
+        bot.send_message(m.chat.id, "عجبك؟ اكتب: ارفعه")
         return
 
-    if text.startswith("اضف امر:") and "->" not in text or text.startswith("اضف امر ") and "->" not in text:
-        cmd = text.replace("اضف امر:", "").replace("اضف امر", "").strip()
-        if not cmd:
-            bot.reply_to(m, "اكتب: اضف امر: تقييد")
-            return
-        waiting[uid] = {"step": "wait_reply", "command": cmd}
-        bot.reply_to(m, f"تمام - الأمر: {cmd}\n\nالحين ارسل لي وش تبي البوت يرد؟\nمثال: • المستخدم ذا {{فلان}} قيده")
-        return
-
-    if "->" in text and (text.startswith("اضف امر") or text.startswith("جرب امر") or text.startswith("اضف:") or text.startswith("جرب:")):
-        tmp = text
-        for p in ["اضف امر:", "اضف امر", "جرب امر:", "جرب امر", "اضف:", "جرب:"]:
-            if tmp.startswith(p):
-                tmp = tmp[len(p):].strip()
-                break
+    low = text.lower()
+    if low.startswith("اضف امر"):
+        tmp = text.replace("اضف امر:", "").replace("اضف امر", "").strip()
         if "->" in tmp:
-            a, b = tmp.split("->", 1)
-            trig = a.strip(); resp = b.strip()
-            pending[uid] = {"t": trig, "r": resp}
-            bot.reply_to(m, f"تمام ✅\nالأمر: {trig}\nالرد: {resp}\n\nتجربة:")
-            formatted, _, _ = format_reply(resp, m)
-            bot.send_message(m.chat.id, formatted)
-            bot.send_message(m.chat.id, "اكتب: ارفعه")
+            a,b = tmp.split("->",1)
+            trig=a.strip(); resp=b.strip()
+            if trig and resp:
+                pending[uid]={"t":trig,"r":resp}
+                bot.reply_to(m, f"تمام ✅\nالأمر: {trig}\nالرد: {resp}\n\nتجربة:")
+                formatted, _, _ = format_reply(resp, m)
+                bot.send_message(m.chat.id, formatted)
+                bot.send_message(m.chat.id, "اكتب: ارفعه")
+                return
+        else:
+            cmd = tmp
+            if not cmd:
+                bot.reply_to(m, "اكتب: اضف امر: تقييد")
+                return
+            waiting[uid] = {"step": "wait_reply", "command": cmd}
+            bot.reply_to(m, f"تمام - الأمر: {cmd}\n\nالحين ارسل وش تبي البوت يرد؟\nمثال: • المستخدم ذا {{فلان}} قيده\nتقدر تكتب فلان او {{فلان}} كلها تشتغل")
             return
 
-    if text in ["ارفعه", "ارفعه للسيرفر", "احفظه"]:
+    if text in ["ارفعه","ارفعه للسيرفر","احفظه"]:
         if uid not in pending:
-            bot.reply_to(m, "ما فيه امر - اكتب: اضف امر: تقييد")
+            bot.reply_to(m, "ما فيه امر")
             return
-        t = pending[uid]["t"]; r = pending[uid]["r"]
-        custom[t] = r; save_custom(); del pending[uid]
+        t=pending[uid]["t"]; r=pending[uid]["r"]
+        custom[t]=r; save_custom(); del pending[uid]
         bot.reply_to(m, f"✅ تم حفظه!\n{t} -> {r}\nيشتغل في كل القروبات 🔥")
         return
 
-    if text in ["الغاء", "الغه"]:
-        waiting.pop(uid, None); pending.pop(uid, None)
+    if text in ["الغاء","الغه"]:
+        waiting.pop(uid,None); pending.pop(uid,None)
         bot.reply_to(m, "❌ الغاء")
         return
 
-    if text in ["اوامري", "قائمة اوامري"]:
+    if text in ["اوامري"]:
         if not custom:
             bot.reply_to(m, "ما اضفت شي")
             return
-        txt = f"📋 اوامرك - ID {uid}:\n\n"
-        for k, v in custom.items():
-            txt += f"• {k} -> {v}\n"
+        txt="📋 اوامرك:\n\n"
+        for k,v in custom.items():
+            txt+=f"• {k} -> {v}\n"
         bot.reply_to(m, txt)
         return
 
-    if text.startswith("احذف امر:") or text.startswith("احذف امر "):
-        t = text.replace("احذف امر:", "").replace("احذف امر", "").strip()
+    if text.startswith("احذف امر"):
+        t=text.replace("احذف امر:","").replace("احذف امر","").strip()
         if t in custom:
             del custom[t]; save_custom()
             bot.reply_to(m, f"✅ حذف {t}")
@@ -138,25 +150,19 @@ def private_lab(m):
             bot.reply_to(m, f"ما لقيت {t}")
         return
 
-    if text in ["/start", "start"]:
-        bot.reply_to(m, f"""اهلا - ايديك {uid} ✅
+    if text in ["/start","start","بدا"]:
+        bot.reply_to(m, f"""اهلا - {uid} ✅
 
-الاوامر اللي تقيّد صدق:
+الطريقة الصح:
+اضف امر: تقييد
+- المستخدم ذا {{فلان}} قيده
 
-• تقييد - بالرد على الشخص يقيده + يرد باسم
-• فك التقييد - يفك عنه
+تقدر تكتب:
+{{فلان}} او فلان - كلها تشتغل
 
-طريقة اضافة اوامر جديدة (انت تعطي الامر والرد):
-
-1️⃣ اضف امر: تقييد
-[يطلب الرد]
-2️⃣ - المستخدم ذا {{فلان}} قيده
-3️⃣ ارفعه
-
-او:
-اضف امر: تقييد -> - المستخدم ذا {{فلان}} قيده
-
-{{فلان}} يصير اسم الشخص تلقائي ✅
+جرب الحين:
+احذف امر: تقييد
+اضف امر: تقييد -> • المستخدم ذا {{فلان}} قيده
 """)
         return
 
@@ -167,78 +173,61 @@ def groups(m):
     text = (m.text or "").strip()
     chat_id = m.chat.id
 
-    # امر تقييد حقيقي
-    if text in ["تقييد", "تقييدد", "قيد"]:
+    if text in ["تقييد","تقييدد","قيد","كتم","كتمم"]:
         if not m.reply_to_message:
-            bot.reply_to(m, "❌ رد على رسالة الشخص اللي تبي تقيده")
+            bot.reply_to(m, "❌ رد على الشخص")
             return
         target_user = m.reply_to_message.from_user
         target_id = target_user.id
         target_name = target_user.first_name or "الشخص"
+        if target_id == bot.get_me().id:
+            bot.reply_to(m, "ما اقدر اقيد نفسي")
+            return
         try:
-            # تقييد حقيقي - يمنع الكتابة
-            bot.restrict_chat_member(
-                chat_id=chat_id,
-                user_id=target_id,
-                permissions=ChatPermissions(can_send_messages=False)
-            )
-            # رد باسم الشخص
-            if text in custom and "تقييد" in custom:
-                # اذا عندك رد مخصص للتقييد
+            bot.restrict_chat_member(chat_id=chat_id, user_id=target_id, permissions=ChatPermissions(can_send_messages=False))
+            # اذا عندك رد مخصص للتقييد
+            if "تقييد" in custom:
                 template = custom["تقييد"]
+                reply_text, _, _ = format_reply(template, m)
+                bot.reply_to(m, reply_text)
+            elif "كتم" in custom:
+                template = custom["كتم"]
                 reply_text, _, _ = format_reply(template, m)
                 bot.reply_to(m, reply_text)
             else:
                 bot.reply_to(m, f"• المستخدم ذا {target_name} قيده 🔒")
         except Exception as e:
-            bot.reply_to(m, f"ما قدرت اقيده - لازم البوت مشرف وعنده صلاحية حظر\n{e}")
+            bot.reply_to(m, f"ما قدرت اقيده\n{e}")
         return
 
-    if text in ["فك التقييد", "فك تقييد", "الغاء التقييد", "الغاء تقييد"]:
+    if text in ["فك التقييد","فك تقييد","فك الكتم","فك كتم"]:
         if not m.reply_to_message:
-            bot.reply_to(m, "❌ رد على رسالة الشخص")
+            bot.reply_to(m, "❌ رد على الشخص")
             return
         target_id = m.reply_to_message.from_user.id
         target_name = m.reply_to_message.from_user.first_name or "الشخص"
         try:
-            bot.restrict_chat_member(
-                chat_id=chat_id,
-                user_id=target_id,
-                permissions=ChatPermissions(
-                    can_send_messages=True,
-                    can_send_media_messages=True,
-                    can_send_other_messages=True,
-                    can_add_web_page_previews=True
-                )
-            )
+            bot.restrict_chat_member(chat_id=chat_id, user_id=target_id, permissions=ChatPermissions(can_send_messages=True, can_send_media_messages=True, can_send_other_messages=True, can_add_web_page_previews=True))
             bot.reply_to(m, f"• المستخدم ذا {target_name} فكينا قيده ✅")
         except Exception as e:
-            bot.reply_to(m, f"ما قدرت افك قيده\n{e}")
+            bot.reply_to(m, f"ما قدرت\n{e}")
         return
 
-    # الاوامر المخصصة اللي انت ضفتها
     if text in custom:
-        # اذا كان الامر هو تقييد - لا تكرر - سوينا فوق
-        if text in ["تقييد", "تقييدد", "قيد"]:
+        if text in ["تقييد","تقييدد","قيد","كتم","كتمم"]:
             return
         template = custom[text]
         reply_text, _, _ = format_reply(template, m)
         bot.reply_to(m, reply_text)
 
-print("="*50)
-print(f"✅ READY - REAL RESTRICT ID {OWNER_BOT_ID}")
-print("✅ تقييد حقيقي + يغير الاسم تلقائي")
-print("✅ بدون A_TOOLSx2")
-print("="*50)
+print("READY - FLAN FIX")
 
 while True:
     try:
-        print("✅ Starting polling...")
         bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True, none_stop=True)
     except Exception as e:
-        err = str(e)
+        err=str(e)
         if "409" in err or "Conflict" in err:
-            print("⚠️ 409 - انتظار 10 ث...")
             time.sleep(10)
             try:
                 bot.remove_webhook()
