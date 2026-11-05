@@ -5,7 +5,7 @@ import threading
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
-    return "OK - SOUL AUTO", 200
+    return "OK - SHAPE DYNAMIC", 200
 @flask_app.route('/health')
 def health():
     return "OK", 200
@@ -28,22 +28,25 @@ try:
 except:
     pass
 
-FILE = 'custom_commands.json'
-OWNER_FILE = 'owner_info.json'
-LOCK_FILE = 'locked_commands.json'
-RANKS_FILE = 'user_ranks.json'
-TOP_FILE = 'top.json'
-SETTINGS_FILE = 'group_settings.json'
+BASE_DIR = "/opt/render/project/src" if os.path.exists("/opt/render/project/src") else "."
+if os.path.exists("/data"):
+    BASE_DIR = "/data"
+
+def get_path(name):
+    return os.path.join(BASE_DIR, name)
+
+FILE = get_path('custom_commands.json')
+LOCK_FILE = get_path('locked_commands.json')
+RANKS_FILE = get_path('user_ranks.json')
+TOP_FILE = get_path('top.json')
 
 custom = {}
-owner_info = {}
 locked = {}
 user_ranks = {}
 top_data = {}
-group_settings = {}
 
 def load_all():
-    global custom, owner_info, locked, user_ranks, top_data, group_settings
+    global custom, locked, user_ranks, top_data
     try:
         with open(FILE,'r',encoding='utf-8') as f:
             d=json.load(f)
@@ -51,15 +54,6 @@ def load_all():
             custom.update(d)
     except:
         pass
-    try:
-        with open(OWNER_FILE,'r',encoding='utf-8') as f:
-            d=json.load(f)
-            owner_info.clear()
-            owner_info.update(d)
-            owner_info['private']='afiwd'
-            owner_info['username']='afiwd'
-    except:
-        owner_info.update({"name":"محسن","username":"afiwd","bio":"https://t.me/afiwd","group":"- darkness","private":"afiwd","photo":None})
     try:
         with open(LOCK_FILE,'r',encoding='utf-8') as f:
             d=json.load(f)
@@ -83,13 +77,6 @@ def load_all():
                 top_data.update(d)
     except:
         pass
-    try:
-        with open(SETTINGS_FILE,'r',encoding='utf-8') as f:
-            d=json.load(f)
-            group_settings.clear()
-            group_settings.update(d)
-    except:
-        pass
 
 load_all()
 
@@ -105,9 +92,6 @@ def save_ranks():
 def save_top():
     with open(TOP_FILE,'w',encoding='utf-8') as f:
         json.dump(top_data,f,ensure_ascii=False,indent=2)
-def save_settings():
-    with open(SETTINGS_FILE,'w',encoding='utf-8') as f:
-        json.dump(group_settings,f,ensure_ascii=False,indent=2)
 
 RANK_ORDER = {"مميز":1,"ادمن":2,"مدير":3,"منشئ":4,"منشئ اساسي":5,"مالك":6,"مالك اساسي":7,"مالك المجموعه":8,"M":9,"MY":10,"Dev2":11,"Dev":12}
 
@@ -159,7 +143,7 @@ def get_stats(cid,uid):
             pos=i
             break
     if pos==0:
-        pos=len(sorted_users)+1 if cnt>0 else 0
+        pos=len(sorted_users)+1 if cnt>0 else 1
     return cnt,pos
 
 def save_entities(msg):
@@ -171,8 +155,6 @@ def save_entities(msg):
             en["url"]=e.url
         if getattr(e,'custom_emoji_id',None):
             en["custom_emoji_id"]=e.custom_emoji_id
-        if getattr(e,'user',None) and e.user:
-            en["user"]={"id":e.user.id,"first_name":e.user.first_name}
         res.append(en)
     return res
 
@@ -185,9 +167,6 @@ def restore_entities(data):
                 kw["url"]=en["url"]
             if "custom_emoji_id" in en:
                 kw["custom_emoji_id"]=en["custom_emoji_id"]
-            if "user" in en and en["user"]:
-                u=en["user"]
-                kw["user"]=User(u["id"],False,u.get("first_name",""))
             res.append(MessageEntity(**kw))
         except:
             pass
@@ -196,32 +175,22 @@ def restore_entities(data):
 def replace_placeholders(text, target_name, target_rank, target_count, target_pos):
     if not text:
         return text
-    text = text.replace("{الاسم}", target_name).replace("{فلان}", target_name).replace("{name}", target_name)
-    text = text.replace("{الرتبة}", target_rank).replace("{رتبته}", target_rank).replace("{rank}", target_rank)
-    text = text.replace("{التفاعل}", str(target_count)).replace("{تفاعلي}", str(target_count))
-    text = text.replace("{الترتيب}", str(target_pos)).replace("{ترتيبي}", str(target_pos))
+    # يدعم كل المتغيرات
+    text = text.replace("{الاسم}", target_name).replace("{فلان}", target_name).replace("{name}", target_name).replace("{المعرف}", target_name)
+    text = text.replace("{الرتبة}", target_rank).replace("{رتبته}", target_rank).replace("{رتبتي}", target_rank).replace("{rank}", target_rank)
+    text = text.replace("{التفاعل}", str(target_count)).replace("{تفاعلي}", str(target_count)).replace("{رسائلي}", str(target_count))
+    text = text.replace("{الترتيب}", str(target_pos)).replace("{ترتيبي}", str(target_pos)).replace("{ترتيبه}", str(target_pos))
     return text
-
-def is_static_ratbti(text):
-    # اذا النص فيه 420 و 7 ثابت وما فيه متغيرات {الرتبة} يعني ثابت
-    if not text:
-        return True
-    if "{الرتبة}" in text or "{التفاعل}" in text or "{الترتيب}" in text or "{الاسم}" in text:
-        return False
-    # لو فيه ارقام ثابتة كبيرة وما يحدث
-    return True
 
 waiting={}
 pending={}
 waiting_rank={}
-waiting_rank_private={}
 
 @bot.message_handler(chat_types=['private'],func=lambda m:m.from_user.id==OWNER_BOT_ID,content_types=['text','photo','sticker','animation','video','voice','document','audio'])
 def private_lab(m):
     uid=m.from_user.id
     txt=(m.text or m.caption or "").strip()
 
-    # قفل امر المطور Dev - يشتغل من الخاص
     if txt.startswith("قفل امر ") or txt.startswith("قفل أمر "):
         cmd_text = txt.replace("قفل امر ","").replace("قفل أمر ","").strip()
         parts = cmd_text.split()
@@ -233,38 +202,26 @@ def private_lab(m):
                 save_locked()
                 bot.reply_to(m, f"≡ تم وضع امر ↤ {command_name}\n≡ لرتبة ↤ {possible_rank} 🎖️\n≡ فقط")
                 return
-        waiting_rank_private[uid] = {"command": cmd_text}
-        bot.reply_to(m, f"≡ حسنًا عزيزي قم بإرسال الرتبة الان :\n━━━━━━━━━━━━━━\n- Dev\n- Dev2\n- MY\n- M\n- مالك المجموعه\n- مالك اساسي\n- مالك\n- منشئ اساسي\n- منشئ\n- مدير\n- ادمن\n- مميز\n━━━━━━━━━━━━━━\n≡ سيتم وضع الأمر ↤ {cmd_text} للرتبة المحددة\nفقط")
+        waiting_rank[uid] = {"command": cmd_text}
+        bot.reply_to(m, f"≡ حسنًا عزيزي قم بإرسال الرتبة الان :\n- Dev\n- Dev2\n- MY\n- M\n- مالك المجموعه\n- مالك اساسي\n- مالك\n- منشئ اساسي\n- منشئ\n- مدير\n- ادمن\n- مميز\n≡ سيتم وضع الأمر ↤ {cmd_text} للرتبة المحددة فقط")
         return
 
-    if uid in waiting_rank_private:
+    if uid in waiting_rank:
         rank = normalize_rank(txt)
         if rank in RANK_ORDER:
-            command = waiting_rank_private[uid]["command"]
+            command = waiting_rank[uid]["command"]
             locked[command] = rank
             save_locked()
-            del waiting_rank_private[uid]
+            del waiting_rank[uid]
             bot.reply_to(m, f"≡ تم وضع امر ↤ {command}\n≡ لرتبة ↤ {rank} 🎖️\n≡ فقط")
             return
 
-    if txt.startswith("فتح امر ") or txt.startswith("فتح أمر "):
-        cmd = txt.replace("فتح امر ","").replace("فتح أمر ","").strip()
+    if txt.startswith("فتح امر "):
+        cmd = txt.replace("فتح امر ","").strip()
         if cmd in locked:
             del locked[cmd]
             save_locked()
             bot.reply_to(m, f"✅ فتح {cmd}")
-        else:
-            bot.reply_to(m, f"❌ {cmd} مو مقفول")
-        return
-
-    if txt in ["قائمة الاقفال","قائمه الاقفال"]:
-        if not locked:
-            bot.reply_to(m,"ما فيه اقفال")
-            return
-        t="🔒 الاقفال:\n"
-        for k,v in locked.items():
-            t+=f"• {k} ↤ {v}\n"
-        bot.reply_to(m,t)
         return
 
     if txt.startswith("اضف امر"):
@@ -273,22 +230,38 @@ def private_lab(m):
             a,b=tmp.split("->",1)
             trig=a.strip(); resp=b.strip()
             if trig and resp:
+                # لو رتبتي - لازم يستخدم متغيرات مو رقم ثابت
+                if trig in ["رتبتي","رتبته","رتبه","رتبتي ²⁷","رتبته ²⁷"]:
+                    if "{الرتبة}" not in resp and "{التفاعل}" not in resp and "{الترتيب}" not in resp:
+                        bot.reply_to(m, f"❌ لا تحط رقم ثابت مثل 422 و 7\n\nاستخدم المتغيرات عشان يحدث تلقائيا:\n\n{{الرتبة}} = رتبته (MY, مميز...)\n{{التفاعل}} = رسائله\n{{الترتيب}} = ترتيبه\n{{الاسم}} = اسمه\n\nمثال:\n≡ رتبتك هي ← {{الرتبة}} 🎖️\n≡ رسائلك بالتفاعل ← {{التفاعل}}\n≡ ترتيبك بالمتفاعلين ← {{الترتيب}}\n-\n\nارسل الرد الصحيح:")
+                        waiting[uid]={"step":"wait_reply","command":trig}
+                        return
                 data={"type":"text","text":resp,"entities":save_entities(m),"file_id":None,"caption":"","caption_entities":[]}
                 pending[uid]={"t":trig,"data":data}
-                bot.reply_to(m,f"تمام - الامر: {trig}\nاكتب: ارفعه")
+                bot.reply_to(m,f"تمام - الامر: {trig}\nالشكل:\n{resp}\n\nبيرد بنفس الشكل بس { '{الرتبة} {التفاعل} {الترتيب}' } يحدث تلقائيا ✅\nاكتب: ارفعه")
                 return
         else:
             cmd=tmp
             if not cmd:
                 return
             waiting[uid]={"step":"wait_reply","command":cmd}
-            bot.reply_to(m,f"تمام - الامر: {cmd} ²⁷\nارسل الرد اللي تبيه يرد فيه بالضبط:")
+            if cmd in ["رتبتي","رتبته"]:
+                bot.reply_to(m,f"تمام - الامر: {cmd} ²⁷\n\nارسل الشكل اللي تبيه - استخدم المتغيرات عشان يحدث:\n{{الرتبة}} {{التفاعل}} {{الترتيب}} {{الاسم}}\n\nمثال:\n≡ رتبتك هي ← {{الرتبة}} 🎖️\n≡ رسائلك بالتفاعل ← {{التفاعل}}\n≡ ترتيبك ← {{الترتيب}}\n-\n\nلا تحط 422 ثابت - حط {{التفاعل}}")
+            else:
+                bot.reply_to(m,f"تمام - الامر: {cmd} ²⁷\nارسل الرد اللي تبيه يرد فيه بنفس الشكل:")
             return
 
     if uid in waiting and waiting[uid]['step']=='wait_reply':
         cmd=waiting[uid]['command']
         ctype=m.content_type
         if ctype=='text':
+            raw_text = m.text
+            # لو رتبتي ورقم ثابت بدون متغيرات - نبهه
+            if cmd in ["رتبتي","رتبته","رتبه"] and "{الرتبة}" not in raw_text and "{التفاعل}" not in raw_text and "{الترتيب}" not in raw_text:
+                # اذا فيه ارقام ثابتة كبيرة
+                if "422" in raw_text or "420" in raw_text or " 7" in raw_text:
+                    bot.reply_to(m, f"❌ انت حاط رقم ثابت {raw_text}\n\nما بيحدث - بيطلع ثابت للكل\n\nاستخدم:\n{{الرتبة}} بدل Dev\n{{التفاعل}} بدل 422\n{{الترتيب}} بدل 7\n{{الاسم}} بدل الاسم\n\nارسل الشكل الصحيح مرة ثانية:")
+                    return
             data={"type":"text","text":m.text,"entities":save_entities(m),"file_id":None,"caption":"","caption_entities":[]}
         elif ctype=='photo':
             data={"type":"photo","text":"","entities":[],"file_id":m.photo[-1].file_id,"caption":m.caption or "","caption_entities":save_entities(m)}
@@ -298,7 +271,7 @@ def private_lab(m):
             data={"type":ctype,"text":m.text or m.caption or "","entities":save_entities(m),"file_id":getattr(getattr(m,ctype,None),'file_id',None),"caption":m.caption or "","caption_entities":save_entities(m)}
         pending[uid]={"t":cmd,"data":data}
         del waiting[uid]
-        bot.reply_to(m,f"تمام\nالامر: {cmd}\nالرد محفوظ - اكتب: ارفعه")
+        bot.reply_to(m,f"تمام - الرد محفوظ\nالشكل اللي عطيته بيرد بنفسه بس يحدث تلقائيا ✅\nاكتب: ارفعه")
         return
 
     if txt in ["ارفعه","احفظه"]:
@@ -308,7 +281,13 @@ def private_lab(m):
         custom[t]=data
         save_custom()
         del pending[uid]
-        bot.reply_to(m,f"✅ حفظت {t}\nالحين يرد نفس الرد اللي عطيته")
+        # اظهر كيف بيطلع
+        sample_text = data.get("text","") or data.get("caption","")
+        if t in ["رتبتي","رتبته"]:
+            preview = replace_placeholders(sample_text, "محسن", "Dev", 5, 1)
+            bot.reply_to(m,f"✅ حفظت {t}\n\nالشكل اللي عطيته:\n{sample_text}\n\nبيطلع في القروب كذا (يحدث تلقائيا):\n{preview}\n\n✅ مو ثابت - يحدث لكل شخص ✅")
+        else:
+            bot.reply_to(m,f"✅ حفظت {t}\nيرد بنفس الشكل اللي عطيته بالضبط ✅")
         return
 
     if txt.startswith("احذف امر"):
@@ -316,24 +295,24 @@ def private_lab(m):
         if cmd in custom:
             del custom[cmd]
             save_custom()
-            bot.reply_to(m,f"✅ حذفت {cmd}\nالحين رتبتي بيرجع للنظام الاساسي ويحدث تلقائيا ✅")
+            bot.reply_to(m,f"✅ حذفت {cmd}")
         else:
-            bot.reply_to(m,f"❌ {cmd} مو موجود في الاوامر المخصصة")
+            bot.reply_to(m,f"❌ {cmd} مو موجود")
         return
 
     if txt in ["اوامري"]:
         if not custom:
             bot.reply_to(m,"ما فيه اوامر مخصصة")
             return
-        t="اوامرك المخصصة:\n"
-        for k in custom:
-            t+=f"• {k}\n"
-        t+="\nاحذف امر: رتبتي ← عشان يرجع يحدث تلقائيا"
+        t="اوامرك (ترد بنفس الشكل + تحدث):\n"
+        for k,v in custom.items():
+            txt_v = v.get("text","") or v.get("caption","") or v.get("type","")
+            t+=f"• {k}: {txt_v[:40]}...\n"
         bot.reply_to(m,t)
         return
 
     if txt in ["/start"]:
-        bot.reply_to(m,"خاصك: https://t.me/afiwd\n\nاذا رتبتي ما يحدث:\nاحذف امر: رتبتي\n\nقفل امر: قفل امر المطور Dev\n\nاضف امر: هلا -> يا هلا {الاسم}")
+        bot.reply_to(m,"خاصك: https://t.me/afiwd\n\nتبي رتبتي يرد بنفس شكلك بس يحدث؟\n\nاضف امر: رتبتي\n≡ رتبتك هي ← {الرتبة} 🎖️\n≡ رسائلك بالتفاعل ← {التفاعل}\n≡ ترتيبك ← {الترتيب}\n-\nارفعه\n\nلا تحط 422 ثابت - حط {التفاعل}")
 
 @bot.message_handler(content_types=['text','photo','sticker','animation','video','voice','document','audio'])
 def groups(m):
@@ -349,7 +328,6 @@ def groups(m):
     except:
         pass
 
-    # قفل امر المطور - نفس سول
     if text.startswith("قفل امر ") or text.startswith("قفل أمر "):
         if get_level(user_id,chat_id) < RANK_ORDER.get("Dev",12) and user_id!=OWNER_BOT_ID:
             bot.reply_to(m,"❌ فقط Dev")
@@ -365,7 +343,7 @@ def groups(m):
                 bot.reply_to(m, f"≡ تم وضع امر ↤ {command_name}\n≡ لرتبة ↤ {possible_rank} 🎖️\n≡ فقط")
                 return
         waiting_rank[chat_id] = {"command": cmd_text, "user": user_id}
-        bot.reply_to(m, f"≡ حسنًا عزيزي قم بإرسال الرتبة الان :\n━━━━━━━━━━━━━━\n- Dev\n- Dev2\n- MY\n- M\n- مالك المجموعه\n- مالك اساسي\n- مالك\n- منشئ اساسي\n- منشئ\n- مدير\n- ادمن\n- مميز\n━━━━━━━━━━━━━━\n≡ سيتم وضع الأمر ↤ {cmd_text} للرتبة المحددة\nفقط")
+        bot.reply_to(m, f"≡ حسنًا عزيزي قم بإرسال الرتبة الان :\n- Dev\n- Dev2\n- MY\n- M\n- مالك المجموعه\n- مالك اساسي\n- مالك\n- منشئ اساسي\n- منشئ\n- مدير\n- ادمن\n- مميز\n≡ سيتم وضع الأمر ↤ {cmd_text} للرتبة المحددة فقط")
         return
 
     if chat_id in waiting_rank and waiting_rank[chat_id]["user"] == user_id:
@@ -400,7 +378,6 @@ def groups(m):
             user_ranks[cs][us]=rank_name
             save_ranks()
             cnt,pos=get_stats(chat_id,target_id)
-            # مثل سول بالضبط - يحدث الرتبة
             bot.send_message(chat_id,f"🎖️ تم رفع {target_name} الى {rank_name}\n\n≡ رتبته هي ← {rank_name} 🎖️\n≡ رسائله بالتفاعل ← {cnt}\n≡ ترتيبه بالمتفاعلين ← {pos}\n-",reply_to_message_id=m.message_id)
             return
 
@@ -414,55 +391,55 @@ def groups(m):
             bot.send_message(chat_id,f"✅ تم تنزيل {target_name}",reply_to_message_id=m.message_id)
         return
 
-    # رتبتي - مثل سول - يحدث تلقائيا لكل شخص
-    if text in ["رتبتي","رتبتي ²⁷"]:
-        # اذا فيه امر مخصص ثابت 420 - تجاهله وخل النظام الاساسي يشتغل
-        if "رتبتي" in custom:
-            raw = custom["رتبتي"].get("text","") or custom["رتبتي"].get("caption","")
-            if is_static_ratbti(raw) and "420" in raw:
-                # تجاهل المخصص الثابت واستخدم النظام الاساسي
-                pass
-            else:
-                # فيه متغيرات {الرتبة} استخدمه
-                data=custom["رتبتي"]
-                rank=get_rank(user_id,chat_id)
-                cnt,pos=get_stats(chat_id,user_id)
-                final = replace_placeholders(data.get("text","") or data.get("caption",""), first_name, rank, cnt, pos)
-                bot.reply_to(m, final)
+    # رتبتي ورتبته - اذا مخصص بشكلك يرد بنفس الشكل بس يحدث
+    if text in ["رتبتي","رتبتي ²⁷","رتبته","رتبته ²⁷","رتبه","رتبة"]:
+        target_id = user_id
+        target_name = first_name
+        is_ratbto = text in ["رتبته","رتبته ²⁷","رتبه","رتبة"]
+        if is_ratbto:
+            if not m.reply_to_message:
+                bot.reply_to(m,"سوي ريبلاي على الشخص واكتب: رتبته")
                 return
-        # النظام الاساسي - يحدث تلقائيا لكل شخص
-        rank=get_rank(user_id,chat_id)
-        cnt,pos=get_stats(chat_id,user_id)
-        # نفس ستايل الصورة بالضبط
-        bot.reply_to(m,f"🎖️ رتبتك هي ← {rank}\n\nرسائلك بالتفاعل ← {cnt}\nترتيبك بالمتفاعلين ← {pos}\n-")
-        return
+            target=m.reply_to_message.from_user
+            target_id=target.id
+            target_name=target.first_name or "الشخص"
 
-    if text in ["رتبته","رتبته ²⁷","رتبه"]:
-        if not m.reply_to_message:
-            bot.reply_to(m,"سوي ريبلاي على الشخص واكتب: رتبته")
-            return
-        target=m.reply_to_message.from_user
-        target_id=target.id
-        target_name=target.first_name or "الشخص"
-        # نفس المشكلة - اذا رتبته مخصص ثابت تجاهله
-        if "رتبته" in custom:
-            raw = custom["رتبته"].get("text","") or custom["رتبته"].get("caption","")
-            if is_static_ratbti(raw) and "420" in raw:
-                pass
-            else:
-                data=custom["رتبته"]
+        # اذا فيه امر مخصص بشكلك - يرد بنفس الشكل بس يحدث
+        if text in custom or (is_ratbto and "رتبته" in custom) or (not is_ratbto and "رتبتي" in custom):
+            key = text if text in custom else ("رتبته" if is_ratbto else "رتبتي")
+            if key in custom:
+                data=custom[key]
                 rank=get_rank(target_id,chat_id)
                 cnt,pos=get_stats(chat_id,target_id)
-                final = replace_placeholders(data.get("text","") or data.get("caption",""), target_name, rank, cnt, pos)
-                bot.reply_to(m, final)
+                raw = data.get("text","") or data.get("caption","")
+                final = replace_placeholders(raw, target_name, rank, cnt, pos)
+                try:
+                    if data.get("type")=="text":
+                        bot.send_message(chat_id, final, entities=restore_entities(data.get("entities",[])), reply_to_message_id=m.message_id)
+                    elif data.get("type")=="photo":
+                        bot.send_photo(chat_id, data["file_id"], caption=final, caption_entities=restore_entities(data.get("caption_entities",[])), reply_to_message_id=m.message_id)
+                    else:
+                        bot.reply_to(m, final)
+                except:
+                    bot.reply_to(m, final)
                 return
+
+        # النظام الاساسي - نفس الشكل
         rank=get_rank(target_id,chat_id)
         cnt,pos=get_stats(chat_id,target_id)
-        bot.reply_to(m,f"🎖️ رتبة {target_name} هي ← {rank}\n\nرسائله بالتفاعل ← {cnt}\nترتيبه بالمتفاعلين ← {pos}\n-")
+        if is_ratbto:
+            bot.reply_to(m,f"≡ رتبة {target_name} هي ← {rank} 🎖️\n\n≡ رسائله بالتفاعل ← {cnt}\n≡ ترتيبه بالمتفاعلين ← {pos}\n-")
+        else:
+            bot.reply_to(m,f"≡ رتبتك هي ← {rank} 🎖️\n\n≡ رسائلك بالتفاعل ← {cnt}\n≡ ترتيبك بالمتفاعلين ← {pos}\n-")
         return
 
-    # اوامر مخصصة - ترد نفس اللي عطيته في الخاص
-    if text in custom and text not in ["رتبتي","رتبته","رتبه","رتبتي ²⁷","رتبته ²⁷"]:
+    # اوامر مخصصة ثانية - ترد بنفس الشكل اللي عطيته في الخاص بالضبط
+    if text in custom:
+        if text in locked:
+            req = locked[text]
+            if get_level(user_id,chat_id) < RANK_ORDER.get(req,0) and user_id!=OWNER_BOT_ID:
+                bot.reply_to(m,f"❌ امر {text} مقفول لرتبة {req} فقط")
+                return
         data=custom[text]
         target_name = first_name
         target_rank = get_rank(user_id,chat_id)
@@ -479,11 +456,7 @@ def groups(m):
                 if ctype=="text":
                     raw_text = data.get("text","")
                     final_text = replace_placeholders(raw_text, target_name, target_rank, target_count, target_pos)
-                    ents=restore_entities(data.get("entities",[]))
-                    if ents and "{" not in raw_text:
-                        bot.send_message(chat_id, final_text, entities=ents, reply_to_message_id=m.message_id)
-                    else:
-                        bot.send_message(chat_id, final_text, reply_to_message_id=m.message_id)
+                    bot.send_message(chat_id, final_text, entities=restore_entities(data.get("entities",[])), reply_to_message_id=m.message_id)
                 elif ctype=="photo":
                     cap = data.get("caption","")
                     final_cap = replace_placeholders(cap, target_name, target_rank, target_count, target_pos)
@@ -496,15 +469,7 @@ def groups(m):
                 bot.reply_to(m, final_text)
         return
 
-    # قفل امر
-    if text in locked:
-        # اذا مقفول
-        req = locked[text]
-        if get_level(user_id,chat_id) < RANK_ORDER.get(req,0) and user_id!=OWNER_BOT_ID:
-            bot.reply_to(m,f"❌ امر {text} مقفول لرتبة {req} فقط")
-            return
-
-print("READY - SOUL AUTO UPDATE - FIXED 420 BUG")
+print(f"READY - SHAPE DYNAMIC - SAME SHAPE AS PRIVATE BUT AUTO UPDATE")
 
 while True:
     try:
