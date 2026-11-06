@@ -1,11 +1,35 @@
-import os
+import os, json
+
+# === حذف قسري لكل الملفات الفاسدة عند التشغيل ===
+for p in [
+    "/data/custom_commands.json",
+    "/opt/render/project/src/custom_commands.json",
+    "./custom_commands.json",
+    "custom_commands.json",
+    "/data/locked_commands.json",
+    "/opt/render/project/src/locked_commands.json"
+]:
+    try:
+        if os.path.exists(p):
+            print(f"!!! FORCE DELETING: {p}")
+            os.remove(p)
+            # انشئ فاضي نظيف
+            with open(p,'w',encoding='utf-8') as wf:
+                json.dump({}, wf)
+    except Exception as e:
+        print(f"delete error {p}: {e}")
+        try:
+            os.remove(p)
+        except:
+            pass
+
 from flask import Flask
-import threading, html, json
+import threading, html
 
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
-    return "OK - ULTRA CLEAN", 200
+    return "OK - FORCE CLEAN", 200
 @flask_app.route('/health')
 def health():
     return "OK", 200
@@ -38,64 +62,38 @@ RANKS_FILE = get_path('user_ranks.json')
 TOP_FILE = get_path('top.json')
 SETTINGS_FILE = get_path('settings.json')
 
-# ===== تنظيف قوي جدا عند التشغيل =====
-def ultra_clean_startup():
-    # احذف كل الملفات اللي فيها قنوات قديمة
-    for fpath in [FILE, get_path('custom_commands.json'), '/data/custom_commands.json', '/opt/render/project/src/custom_commands.json', './custom_commands.json', 'custom_commands.json']:
-        try:
-            if os.path.exists(fpath):
-                with open(fpath,'r',encoding='utf-8') as f:
-                    content = f.read()
-                    if "A_ToolsX" in content or "A_TOOLS" in content or "TucosProfit" in content or "tucosalamanca" in content or "To use this bot, you must join" in content:
-                        print(f"!!! DELETING DIRTY FILE: {fpath}")
-                        os.remove(fpath)
-                        # انشئ ملف فاضي نظيف
-                        with open(fpath,'w',encoding='utf-8') as wf:
-                            json.dump({}, wf)
-        except Exception as e:
-            print(f"clean error {fpath}: {e}")
-            try:
-                os.remove(fpath)
-            except:
-                pass
-
-ultra_clean_startup()
-
 custom = {}
 locked = {}
 user_ranks = {}
 top_data = {}
-settings = {}
+settings = {"leave_dev_msg": "≡ المطور غادر المجموعه 💔\n≡ {الاسم} ← {الرتبة}\n-"}
 
 def load_all():
     global custom, locked, user_ranks, top_data, settings
-    for fpath, dct in [(FILE, custom), (LOCK_FILE, locked), (RANKS_FILE, user_ranks), (TOP_FILE, top_data), (SETTINGS_FILE, settings)]:
+    # custom فاضي - نظفناه فوق
+    try:
+        if os.path.exists(FILE):
+            with open(FILE,'r',encoding='utf-8') as f:
+                data=json.load(f)
+                if isinstance(data, dict) and len(data) > 0:
+                    # اذا لسه فيه شي - امسحه مرة ثانية
+                    if any("A_Tools" in str(v) or "Tucos" in str(v) or "To use this bot" in str(v) for v in data.values()):
+                        print("STILL DIRTY - WIPING AGAIN")
+                        with open(FILE,'w',encoding='utf-8') as wf:
+                            json.dump({}, wf)
+                    else:
+                        custom.update(data)
+    except:
+        pass
+    for fpath, dct in [(LOCK_FILE, locked), (RANKS_FILE, user_ranks), (TOP_FILE, top_data), (SETTINGS_FILE, settings)]:
         try:
             if os.path.exists(fpath):
                 with open(fpath,'r',encoding='utf-8') as f:
                     data=json.load(f)
-                    if isinstance(data, dict):
-                        # نظف اي امر فيه قناة
-                        cleaned = {}
-                        for k,v in data.items():
-                            txt = ""
-                            if isinstance(v, dict):
-                                txt = v.get("text","") + v.get("caption","")
-                            else:
-                                txt = str(v)
-                            if "A_ToolsX" in txt or "A_TOOLS" in txt or "TucosProfit" in txt or "To use this bot" in txt or "join our channel" in txt.lower():
-                                print(f"SKIPPING DIRTY COMMAND: {k}")
-                                continue
-                            cleaned[k]=v
-                        dct.clear()
-                        dct.update(cleaned)
-                    else:
-                        dct.clear()
-                        dct.update(data)
+                    dct.clear()
+                    dct.update(data)
         except:
             pass
-    if not settings:
-        settings.update({"leave_dev_msg": "≡ المطور غادر المجموعه 💔\n≡ {الاسم} ← {الرتبة}\n-"})
 
 load_all()
 
@@ -222,8 +220,8 @@ def get_private_menu():
         InlineKeyboardButton("🔒 قائمة الاقفال", callback_data="p_locks")
     )
     markup.add(
-        InlineKeyboardButton("🧹 مسح كل الاوامر", callback_data="p_wipe"),
-        InlineKeyboardButton("📁 الملفات", callback_data="p_files")
+        InlineKeyboardButton("📁 الملفات", callback_data="p_files"),
+        InlineKeyboardButton("✅ البوت نظيف", callback_data="p_clean_ok")
     )
     markup.add(InlineKeyboardButton("• إغلاق •", callback_data="menu_close"))
     return markup
@@ -270,35 +268,27 @@ def handle_callback(call):
         data = call.data
         chat_id = call.message.chat.id
         msg_id = call.message.message_id
-
         if data == "menu_close":
             try:
                 bot.delete_message(chat_id, msg_id)
             except:
                 bot.edit_message_text("تم الإغلاق •", chat_id, msg_id)
             return
-
         if data == "p_main":
-            txt = f"👋 اهلا يا {call.from_user.first_name}\n\n✅ نظيف من A_ToolsX\n• اوامرك: {len(custom)}\n• مقفلة: {len(locked)}"
+            txt = f"👋 اهلا يا {call.from_user.first_name}\n\n✅ نظيف من A_ToolsX و TucosProfit\n• اوامرك: {len(custom)}\n• مقفلة: {len(locked)}"
             bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_menu())
             return
-
-        if data == "p_wipe":
-            custom.clear()
-            save_custom()
-            locked.clear()
-            save_locked()
-            bot.edit_message_text("🧹 تم مسح كل الاوامر الفاسدة ✅\n\nالحين البوت نظيف 100%\n\n• رتبتي\n• المتفاعلين\n• الاوامر\nكلها صارت تشتغل بدون قناة\n\nاضف اوامرك من جديد ب:\nاضف امر رفع Dev -> ...", chat_id, msg_id, reply_markup=get_private_back())
+        if data == "p_clean_ok":
+            bot.edit_message_text("✅ البوت نظيف 100% - ما فيه اي قناة\n\nجرب:\n• رتبتي\n• /start\n• المتفاعلين\n• الاوامر\n\nكلها بدون قناة", chat_id, msg_id, reply_markup=get_private_back())
             return
-
         if data == "p_add":
-            bot.edit_message_text("➕ اضف امر:\nاضف امر (لحاله) → نظام Soul\nاضف امر X -> Y", chat_id, msg_id, reply_markup=get_private_back())
+            bot.edit_message_text("➕ اضف امر:\nاضف امر X -> Y\nمثال: اضف امر هلا -> يا هلا {الاسم}", chat_id, msg_id, reply_markup=get_private_back())
             return
         if data == "p_del":
             bot.edit_message_text("➖ احذف امر: اسم الامر", chat_id, msg_id, reply_markup=get_private_back())
             return
         if data == "p_my":
-            txt = f"📜 اوامرك ({len(custom)}):\n" + "\n".join([f"• {k}" for k in list(custom.keys())[:30]]) if custom else "ما عندك اوامر - نظيف ✅"
+            txt = f"📜 اوامرك ({len(custom)}):\n" + "\n".join([f"• {k}" for k in list(custom.keys())[:30]]) if custom else "ما عندك اوامر - نظيف ✅\n\nالحين تقدر تضيف من جديد بدون قناة"
             bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_back())
             return
         if data == "p_locks":
@@ -310,16 +300,15 @@ def handle_callback(call):
             for p in [FILE, LOCK_FILE, RANKS_FILE, TOP_FILE, SETTINGS_FILE]:
                 exists = "✅" if os.path.exists(p) else "❌"
                 txt += f"{exists} {os.path.basename(p)}\n"
-            txt += f"\n{'✅ /data موجود - دائم' if os.path.exists('/data') else '❌ /data مو موجود'}"
-            txt += "\n\n✅ هذا الملف ينظف A_ToolsX تلقائيا"
+            txt += f"\n{'✅ /data موجود - دائم' if os.path.exists('/data') else '❌ /data مو موجود - لازم Disk'}"
+            txt += "\n\n✅ تم حذف كل ملفات القنوات الفاسدة"
             bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_back())
             return
         if data == "menu_main":
             if chat_id < 0:
                 bot.edit_message_text("قائمة الاوامر", chat_id, msg_id, reply_markup=get_main_menu())
             else:
-                txt = f"👋 اهلا يا {call.from_user.first_name}\n\n• اوامرك: {len(custom)}"
-                bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_menu())
+                bot.edit_message_text(f"👋 اهلا - نظيف ✅\n• اوامرك: {len(custom)}", chat_id, msg_id, reply_markup=get_private_menu())
             return
         if data in COMMANDS_TEXT:
             bot.edit_message_text(COMMANDS_TEXT[data], chat_id, msg_id, reply_markup=get_section_keyboard())
@@ -332,22 +321,32 @@ waiting = {}
 pending = {}
 waiting_rank = {}
 
+# ===== اهم شي - اوامر التنظيف لها اولوية قبل custom =====
 @bot.message_handler(chat_types=['private'],func=lambda m:m.from_user.id==OWNER_BOT_ID,content_types=['text'])
 def private_handler(m):
     uid=m.from_user.id
     txt=(m.text or "").strip()
 
-    if txt in ["/start","القائمة","القائمه","قائمتي","start","menu","الاوامر","اوامري","نظف"]:
-        welcome = f"👋 اهلا يا {m.from_user.first_name} ²⁷\n\n✅ البوت نظيف من A_ToolsX\n\n• اوامرك: {len(custom)}\n• مقفلة: {len(locked)}\n\nاذا لسه يطلع قناة اضغط مسح كل الاوامر"
+    # اوامر التنظيف - اولوية قصوى - حتى لو موجودة في custom
+    if txt in ["/start","القائمة","القائمه","قائمتي","start","menu","الاوامر","اوامري","نظف","مسح كل الاوامر","تنظيف","نظف كل شي","امسح كل شي"]:
+        if txt in ["مسح كل الاوامر","تنظيف","نظف كل شي","امسح كل شي","نظف"]:
+            custom.clear()
+            locked.clear()
+            save_custom()
+            save_locked()
+            # احذف الملفات فعليا
+            for p in [FILE, "/data/custom_commands.json", "/opt/render/project/src/custom_commands.json"]:
+                try:
+                    if os.path.exists(p):
+                        os.remove(p)
+                        with open(p,'w',encoding='utf-8') as wf:
+                            json.dump({}, wf)
+                except:
+                    pass
+            bot.reply_to(m, "🧹 تم مسح كل الاوامر الفاسدة ✅\n\nالحين البوت نظيف 100%\n\nجرب:\n• رتبتي\n• المتفاعلين\n• الاوامر\n\nكلها بدون قناة")
+            return
+        welcome = f"👋 اهلا يا {m.from_user.first_name} ²⁷\n\n✅ البوت نظيف - تم حذف A_ToolsX و TucosProfit\n\n• اوامرك: {len(custom)}\n• مقفلة: {len(locked)}"
         bot.send_message(m.chat.id, welcome, reply_markup=get_private_menu())
-        return
-
-    if txt in ["مسح كل الاوامر","نظف كل شي","امسح كل شي","تنظيف"]:
-        custom.clear()
-        save_custom()
-        locked.clear()
-        save_locked()
-        bot.reply_to(m, "🧹 تم مسح كل الاوامر الفاسدة ✅\n\nالحين:\n• رتبتي يشتغل\n• /start يشتغل\nبدون قناة\n\nاضف اوامرك من جديد")
         return
 
     if txt == "اضف امر":
@@ -447,13 +446,17 @@ def private_handler(m):
         custom[t]=data
         save_custom()
         del pending[uid]
-        bot.reply_to(m,f"✅ حفظت {t}")
+        bot.reply_to(m,f"✅ حفظت {t} - نظيف بدون قناة")
         return
 
     if txt.startswith("احذف امر"):
         cmd=txt.replace("احذف امر:","").replace("احذف امر","").strip()
         if not cmd:
             bot.reply_to(m, "اكتب: احذف امر: اسم الامر")
+            return
+        # منع حذف اوامر التنظيف نفسها
+        if cmd in ["مسح كل الاوامر","تنظيف","/start","القائمة"]:
+            bot.reply_to(m, "❌ هذا امر نظام - ما ينحذف")
             return
         if cmd in custom:
             del custom[cmd]
@@ -469,18 +472,7 @@ def private_handler(m):
                 save_custom()
                 bot.reply_to(m,f"✅ حذفت اوامر مشابهة لـ {cmd}")
             else:
-                # اذا كتب احذف امر خروج المطور وهو مو موجود - يعني فاسد
-                if "خروج المطور" in cmd or "احذف امر خروج" in txt:
-                    # احذف اي شي فيه خروج المطور
-                    c=0
-                    for k in list(custom.keys()):
-                        if "خروج" in k:
-                            del custom[k]
-                            c+=1
-                    save_custom()
-                    bot.reply_to(m, f"✅ نظفت {c} امر خروج - الحين اضف واحد جديد بدون قناة")
-                else:
-                    bot.reply_to(m,f"❌ {cmd} مو موجود")
+                bot.reply_to(m,f"❌ {cmd} مو موجود - البوت نظيف اصلا")
         return
 
 @bot.message_handler(content_types=['left_chat_member'])
@@ -519,6 +511,37 @@ def groups(m):
     user_id=m.from_user.id
     first_name=m.from_user.first_name or "شخص"
 
+    # اولوية قصوى - اوامر النظام قبل custom
+    if text in ["الاوامر","اوامر","قائمة الاوامر","/start","رتبتي","رتبتي ²⁷","رتبته","المتفاعلين","مت","توب","تقييد","مق","كتم"]:
+        if text in ["الاوامر","اوامر","قائمة الاوامر"]:
+            bot.send_message(chat_id, "قائمة الاوامر\n\n─────────────\n\n• اختر القسم وبتطلع لك اوامره", reply_markup=get_main_menu(), reply_to_message_id=m.message_id)
+            return
+        if text in ["المتفاعلين","مت","توب","متفاعلين"]:
+            top_txt = get_top_list_mention(chat_id, user_id)
+            bot.send_message(chat_id, top_txt, parse_mode="HTML", reply_to_message_id=m.message_id)
+            return
+        if text in ["تقييد","كتم","مق","اسكات"]:
+            if get_level(user_id, chat_id) < RANK_ORDER.get("ادمن",2) and user_id!=OWNER_BOT_ID:
+                return
+            handle_builtin_restrict(m)
+            return
+        if text in ["رتبتي","رتبتي ²⁷","رتبته","رتبته ²⁷","رتبه","رتبة"]:
+            target_id = user_id
+            target_name = first_name
+            is_ratbto = text in ["رتبته","رتبته ²⁷","رتبه","رتبة"]
+            if is_ratbto:
+                if not m.reply_to_message:
+                    bot.reply_to(m,"سوي ريبلاي على الشخص واكتب: رتبته")
+                    return
+                target_id=m.reply_to_message.from_user.id
+                target_name=m.reply_to_message.from_user.first_name or "الشخص"
+            rank_badge=get_rank_with_badge(target_id,chat_id)
+            cnt,pos=get_stats(chat_id,target_id)
+            safe = html.escape(target_name)
+            mention = f'<a href="tg://user?id={target_id}">{safe}</a>'
+            bot.send_message(chat_id, f"≡ رتبة {mention} هي ← {rank_badge}\n≡ رسائله ← {cnt}\n≡ ترتيبه ← {pos}\n-", parse_mode="HTML", reply_to_message_id=m.message_id)
+            return
+
     try:
         add_count(chat_id,user_id,first_name)
     except:
@@ -552,25 +575,6 @@ def groups(m):
                 bot.reply_to(m, f"≡ تم حفظ الامر باسم ( {new} ) ✓\n-")
             del waiting_alias[key_alias]
             return
-
-    if text in ["تقييد","كتم","مق","اسكات"]:
-        if get_level(user_id, chat_id) < RANK_ORDER.get("ادمن",2) and user_id!=OWNER_BOT_ID:
-            return
-        handle_builtin_restrict(m)
-        return
-
-    if text in ["الاوامر","اوامر","قائمة الاوامر","/start"]:
-        # هذا اللي في صورتك - كان يطلع قناة - الحين نظيف
-        if text == "/start" and chat_id > 0:
-            pass
-        else:
-            bot.send_message(chat_id, "قائمة الاوامر\n\n─────────────\n\n• اختر القسم وبتطلع لك اوامره", reply_markup=get_main_menu(), reply_to_message_id=m.message_id)
-            return
-
-    if text in ["المتفاعلين","مت","توب","متفاعلين"]:
-        top_txt = get_top_list_mention(chat_id, user_id)
-        bot.send_message(chat_id, top_txt, parse_mode="HTML", reply_to_message_id=m.message_id)
-        return
 
     if text.startswith("قفل امر "):
         if get_level(user_id,chat_id) < 12 and user_id!=OWNER_BOT_ID:
@@ -629,7 +633,7 @@ def groups(m):
             if full_cmd in custom:
                 data=custom[full_cmd]
                 raw = data.get("text","") or ""
-                if "A_Tools" in raw or "Tucos" in raw or "t.me" in raw:
+                if "A_Tools" in raw or "Tucos" in raw or "t.me" in raw or "To use this bot" in raw:
                     raw = "≡ المستخدم ذا 「 {الاسم} 」\n≡ تم رفعه ✓\n≡ رتبته ← {الرتبة}"
                 final = smart_replace(raw, target_name, rank_name, rank_badge, cnt, pos)
                 final = re.sub(r"「\s*」", f"「 {target_name} 」", final)
@@ -650,46 +654,6 @@ def groups(m):
             safe = html.escape(m.reply_to_message.from_user.first_name or "الشخص")
             mention = f'<a href="tg://user?id={target_id}">{safe}</a>'
             bot.send_message(chat_id, f"✅ تم تنزيل {mention}", parse_mode="HTML", reply_to_message_id=m.message_id)
-        return
-
-    if text in ["رتبتي","رتبتي ²⁷","رتبته","رتبته ²⁷","رتبه","رتبة","رتبتي ٢٧"]:
-        # هذا اللي في صورتك - كان يطلع قناة - الحين نظيف 100%
-        target_id = user_id
-        target_name = first_name
-        is_ratbto = text in ["رتبته","رتبته ²⁷","رتبه","رتبة"]
-        if is_ratbto:
-            if not m.reply_to_message:
-                bot.reply_to(m,"سوي ريبلاي على الشخص واكتب: رتبته")
-                return
-            target_id=m.reply_to_message.from_user.id
-            target_name=m.reply_to_message.from_user.first_name or "الشخص"
-        
-        # اذا فيه امر مخصص فاسد - تجاهله واستخدم النظام
-        if text in custom:
-            v = custom[text]
-            txt_check = v.get("text","") if isinstance(v, dict) else str(v)
-            if "A_Tools" in txt_check or "Tucos" in txt_check or "To use this bot" in txt_check:
-                # احذفه تلقائيا
-                del custom[text]
-                save_custom()
-            else:
-                # استخدم المخصص النظيف
-                rank_badge=get_rank_with_badge(target_id,chat_id)
-                cnt,pos=get_stats(chat_id,target_id)
-                raw = txt_check
-                final = smart_replace(raw, target_name, get_rank(target_id,chat_id), rank_badge, cnt, pos)
-                final = re.sub(r"「\s*」", f"「 {target_name} 」", final)
-                bot.send_message(chat_id, final, reply_to_message_id=m.message_id)
-                return
-
-        rank_badge=get_rank_with_badge(target_id,chat_id)
-        cnt,pos=get_stats(chat_id,target_id)
-        safe = html.escape(target_name)
-        mention = f'<a href="tg://user?id={target_id}">{safe}</a>'
-        if is_ratbto:
-            bot.send_message(chat_id, f"≡ رتبة {mention} هي ← {rank_badge}\n≡ رسائله ← {cnt}\n≡ ترتيبه ← {pos}\n-", parse_mode="HTML", reply_to_message_id=m.message_id)
-        else:
-            bot.send_message(chat_id, f"≡ رتبتك {mention} هي ← {rank_badge}\n≡ رسائلك ← {cnt}\n≡ ترتيبك ← {pos}\n-", parse_mode="HTML", reply_to_message_id=m.message_id)
         return
 
     if text in custom:
@@ -713,7 +677,6 @@ def groups(m):
             raw_text = data.get("text","")
             if raw_text:
                 if "A_Tools" in raw_text or "Tucos" in raw_text or "To use this bot" in raw_text or "join our channel" in raw_text.lower():
-                    # امنع ارسال قنوات
                     del custom[text]
                     save_custom()
                     return
@@ -730,7 +693,7 @@ def groups(m):
                     bot.send_message(chat_id, final_text, reply_to_message_id=m.message_id)
                 return
 
-print(f"READY - ULTRA CLEAN NO CHANNEL")
+print(f"READY - FORCE CLEAN - NO CHANNEL EVER")
 
 while True:
     try:
