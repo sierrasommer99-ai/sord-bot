@@ -5,7 +5,7 @@ import threading, html, json
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
-    return "OK - PRIVATE MENU", 200
+    return "OK - CLEAN NO CHANNEL", 200
 @flask_app.route('/health')
 def health():
     return "OK", 200
@@ -56,6 +56,26 @@ def load_all():
             pass
     if not settings:
         settings.update({"leave_dev_msg": "≡ المطور غادر المجموعه 💔\n≡ {الاسم} ← {الرتبة}\n-"})
+    # تنظيف اوامر القنوات القديمة A_TOOLSx2 و TucosProfit
+    dirty = False
+    for k in list(custom.keys()):
+        v = custom[k]
+        text = ""
+        if isinstance(v, dict):
+            text = v.get("text","") + v.get("caption","")
+        else:
+            text = str(v)
+        if "A_ToolsX" in text or "A_TOOLS" in text or "TucosProfit" in text or "tucosalamanca" in text or "join our channel" in text.lower():
+            print(f"CLEANING DIRTY COMMAND: {k}")
+            del custom[k]
+            dirty = True
+        if k in ["A_ToolsX", "A_TOOLSx2", "TucosProfit", "احذف امر خروج المطور"]:
+            # هذا الامر اللي في صورتك - احذفه
+            if "t.me" in text or "join" in text.lower():
+                del custom[k]
+                dirty = True
+    if dirty:
+        save_json(FILE, custom)
 
 load_all()
 
@@ -173,7 +193,6 @@ def smart_replace(text, name, rank_raw, rank_badge, count, pos):
     text = re.sub(r'←\s*التفاعل\b', f'← {count}', text)
     return text
 
-# ===== قوائم الازرار =====
 def get_private_menu():
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
@@ -185,12 +204,8 @@ def get_private_menu():
         InlineKeyboardButton("🔒 قائمة الاقفال", callback_data="p_locks")
     )
     markup.add(
-        InlineKeyboardButton("💬 المتفاعلين", callback_data="p_top"),
-        InlineKeyboardButton("👥 الرتب", callback_data="p_ranks")
-    )
-    markup.add(
-        InlineKeyboardButton("📁 الملفات", callback_data="p_files"),
-        InlineKeyboardButton("⚙️ الإعدادات", callback_data="p_settings")
+        InlineKeyboardButton("🧹 تنظيف القنوات", callback_data="p_clean"),
+        InlineKeyboardButton("📁 الملفات", callback_data="p_files")
     )
     markup.add(
         InlineKeyboardButton("• إغلاق •", callback_data="menu_close")
@@ -228,7 +243,7 @@ COMMANDS_TEXT = {
     "menu_lock": "• القفل والفتح 🔒\n\nقفل امر X / فتح امر X",
     "menu_toggle": "• التفعيل والتعطيل ⚙️",
     "menu_fun": "• التسلية والخدمية 🎮\n\nرتبتي / رتبته / المتفاعلين مع منشن ازرق\nالاوامر - قائمة الاوامر",
-    "menu_admin": "• ادارة القروب 👮‍♂️\n\nرفع مميز, ادمن, مدير, منشئ, مالك, M, MY, Dev\nتقييد / مق / كتم (بالرد)\n\n• اضف امر → يخليك تسوي اختصار",
+    "menu_admin": "• ادارة القروب 👮‍♂️\n\nرفع مميز, ادمن, مدير, منشئ, مالك, M, MY, Dev\nتقييد / مق / كتم (بالرد)",
     "menu_dev": "• اوامر Dev 🛠️\n\nاضف امر X -> Y\n{الاسم} {الرتبة} {التفاعل}",
     "menu_settings": "• الإعدادات ⚙️"
 }
@@ -239,7 +254,6 @@ def handle_callback(call):
         data = call.data
         chat_id = call.message.chat.id
         msg_id = call.message.message_id
-        user_id = call.from_user.id
 
         if data == "menu_close":
             try:
@@ -248,115 +262,75 @@ def handle_callback(call):
                 bot.edit_message_text("تم الإغلاق •", chat_id, msg_id)
             return
 
-        # ===== قائمة الخاص =====
         if data == "p_main":
-            txt = f"""👋 اهلا يا {call.from_user.first_name}
-
-≡ قائمة التحكم الخاصة ببوت SRDT
-
-• عدد اوامرك: {len(custom)}
-• الاوامر المقفلة: {len(locked)}
-• التخزين: {BASE_DIR}
-
-اختر من القائمة:"""
+            txt = f"👋 اهلا يا {call.from_user.first_name}\n\n≡ قائمة التحكم الخاصة\n\n• اوامرك: {len(custom)}\n• مقفلة: {len(locked)}\n• نظيف من قنوات A_ToolsX ✅"
             bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_menu())
             return
 
+        if data == "p_clean":
+            # تنظيف يدوي
+            count = 0
+            for k in list(custom.keys()):
+                v = custom[k]
+                text = ""
+                if isinstance(v, dict):
+                    text = v.get("text","") + v.get("caption","")
+                else:
+                    text = str(v)
+                if "A_ToolsX" in text or "A_TOOLS" in text or "TucosProfit" in text or "t.me" in text and "join" in text.lower():
+                    del custom[k]
+                    count += 1
+                if "احذف امر خروج المطور" == k or "خروج المطور" in k:
+                    if "t.me" in text or len(text) < 5:
+                        del custom[k]
+                        count += 1
+            save_custom()
+            bot.edit_message_text(f"🧹 تم تنظيف {count} امر فيه قنوات قديمة\n\nالحين جرب:\nاحذف امر خروج المطور\nما راح يطلع لك قناة بعد", chat_id, msg_id, reply_markup=get_private_back())
+            return
+
         if data == "p_add":
-            bot.edit_message_text("➕ لإضافة امر جديد:\n\n• اكتب: اضف امر (لحاله) → نظام Soul\n• او: اضف امر X -> Y\n• او: اضف امر X ثم ارسل الشكل\n\nمثال:\nاضف امر\nثم تقييد\nثم مق\n\nراح يصير مق اختصار لتقييد", chat_id, msg_id, reply_markup=get_private_back())
+            bot.edit_message_text("➕ اضف امر:\n\n• اضف امر (لحاله) → نظام Soul\n• اضف امر X -> Y\n• اضف امر X ثم ارسل الشكل", chat_id, msg_id, reply_markup=get_private_back())
             return
 
         if data == "p_del":
-            bot.edit_message_text("➖ لحذف امر:\n\nاكتب:\nاحذف امر: اسم الامر\n\nمثال:\nاحذف امر: مق\nاحذف امر: رفع Dev", chat_id, msg_id, reply_markup=get_private_back())
+            bot.edit_message_text("➖ احذف امر:\n\nاحذف امر: اسم الامر\n\nمثال:\nاحذف امر: مق\nاحذف امر: احذف امر خروج المطور", chat_id, msg_id, reply_markup=get_private_back())
             return
 
         if data == "p_my":
             if not custom:
-                txt = "📜 ما عندك اوامر بعد\n\nاضف اول امر بكتابة:\nاضف امر"
+                txt = "📜 ما عندك اوامر"
             else:
-                txt = f"📜 اوامرك ({len(custom)}):\n─────────────\n"
+                txt = f"📜 اوامرك ({len(custom)}):\n"
                 for k in list(custom.keys())[:30]:
                     txt += f"• {k}\n"
-                if len(custom) > 30:
-                    txt += f"\n... و {len(custom)-30} امر اخر"
             bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_back())
             return
 
         if data == "p_locks":
             if not locked:
-                txt = "🔒 ما فيه اوامر مقفلة"
+                txt = "🔒 ما فيه مقفلة"
             else:
-                txt = f"🔒 الاوامر المقفلة ({len(locked)}):\n─────────────\n"
+                txt = f"🔒 مقفلة ({len(locked)}):\n"
                 for k,v in locked.items():
                     txt += f"• {k} → {v}\n"
-                txt += "\nلفتح امر:\nفتح امر: اسم الامر"
-            bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_back())
-            return
-
-        if data == "p_top":
-            bot.edit_message_text("💬 المتفاعلين:\n\nهذا الأمر يشتغل في القروب فقط\nاكتب في القروب:\nالمتفاعلين / مت / توب\n\nمع منشن ازرق 🔵", chat_id, msg_id, reply_markup=get_private_back())
-            return
-
-        if data == "p_ranks":
-            txt = """👥 الرتب المتاحة:
-
-• مميز (1)
-• ادمن (2)
-• مدير (3)
-• منشئ (4)
-• منشئ اساسي (5)
-• مالك (6)
-• مالك اساسي (7)
-• مالك المجموعه (8)
-• M (9)
-• MY (10) 🎖️
-• Dev2 (11) 🎖️
-• Dev (12) 🎖️
-
-شارة 🎖️ فقط MY وفوق"""
             bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_back())
             return
 
         if data == "p_files":
-            files = []
+            txt = f"📁 BASE: {BASE_DIR}\n\n"
             for p in [FILE, LOCK_FILE, RANKS_FILE, TOP_FILE, SETTINGS_FILE]:
-                status = "✅ موجود" if os.path.exists(p) else "❌ مو موجود"
-                try:
-                    size = os.path.getsize(p) if os.path.exists(p) else 0
-                    files.append(f"{os.path.basename(p)}: {status} ({size} byte)")
-                except:
-                    files.append(f"{os.path.basename(p)}: {status}")
-            txt = f"📁 حالة الملفات:\nBASE: {BASE_DIR}\n─────────────\n" + "\n".join(files)
-            txt += f"\n\n💾 Disk: {'✅ /data موجود - الحفظ دائم' if os.path.exists('/data') else '❌ /data مو موجود - لازم تضيف Disk في Render'}"
+                exists = "✅" if os.path.exists(p) else "❌"
+                txt += f"{exists} {os.path.basename(p)}\n"
+            txt += f"\n{'✅ /data موجود - دائم' if os.path.exists('/data') else '❌ /data مو موجود'}"
+            txt += "\n\n✅ نظيف من A_TOOLSx2"
             bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_back())
             return
 
-        if data == "p_settings":
-            txt = f"""⚙️ الإعدادات:
-
-• رسالة خروج المطور:
-{settings.get('leave_dev_msg','')}
-
-لتغييرها اكتب:
-اضف رسالة خروج المطور
-ثم ارسل الرسالة الجديدة
-
-مثال:
-{{الاسم}} {{الرتبة}} {{التفاعل}}"""
-            bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_back())
-            return
-
-        # قوائم القروب
         if data == "menu_main":
-            if chat_id < 0:  # قروب
-                bot.edit_message_text("قائمة الاوامر\n\n─────────────\n\n• اختر القسم وبتطلع لك اوامره", chat_id, msg_id, reply_markup=get_main_menu())
+            if chat_id < 0:
+                bot.edit_message_text("قائمة الاوامر", chat_id, msg_id, reply_markup=get_main_menu())
             else:
-                txt = f"""👋 اهلا يا {call.from_user.first_name}
-
-≡ قائمة التحكم الخاصة ببوت SRDT
-
-• عدد اوامرك: {len(custom)}
-• الاوامر المقفلة: {len(locked)}"""
+                txt = f"👋 اهلا يا {call.from_user.first_name}\n\n• اوامرك: {len(custom)}"
                 bot.edit_message_text(txt, chat_id, msg_id, reply_markup=get_private_menu())
             return
 
@@ -373,27 +347,15 @@ pending = {}
 waiting_rank = {}
 
 @bot.message_handler(chat_types=['private'],func=lambda m:m.from_user.id==OWNER_BOT_ID,content_types=['text'])
-def private_menu(m):
+def private_handler(m):
     uid=m.from_user.id
     txt=(m.text or "").strip()
 
-    # قائمة الخاص
     if txt in ["/start","القائمة","القائمه","قائمتي","start","menu","الاوامر","اوامري"]:
-        welcome = f"""👋 اهلا يا {m.from_user.first_name} ²⁷
-
-≡ بوت SRDT - لوحة التحكم الخاصة
-
-─────────────
-• اوامرك: {len(custom)}
-• مقفلة: {len(locked)}
-• التخزين: {BASE_DIR}
-─────────────
-
-اختر من القائمة:"""
+        welcome = f"👋 اهلا يا {m.from_user.first_name} ²⁷\n\n≡ لوحة التحكم - نظيف من القنوات ✅\n\n• اوامرك: {len(custom)}\n• مقفلة: {len(locked)}"
         bot.send_message(m.chat.id, welcome, reply_markup=get_private_menu())
         return
 
-    # نظام Soul - اضف امر لحاله
     if txt == "اضف امر":
         waiting_alias[uid] = {"step":"wait_old", "chat_type":"private"}
         bot.reply_to(m, "≡ ارسل لي الامر القديم ...\n-")
@@ -402,8 +364,7 @@ def private_menu(m):
     if uid in waiting_alias and waiting_alias[uid]["chat_type"]=="private":
         step = waiting_alias[uid]["step"]
         if step=="wait_old":
-            old = txt
-            waiting_alias[uid]["old"] = old
+            waiting_alias[uid]["old"] = txt
             waiting_alias[uid]["step"] = "wait_new"
             bot.reply_to(m, "≡ ارسل الامر الجديد عشان احطه مكان القديم\n-")
             return
@@ -453,19 +414,6 @@ def private_menu(m):
             bot.reply_to(m, f"✅ فتح {cmd}")
         return
 
-    if txt.startswith("اضف رسالة خروج المطور"):
-        waiting[uid]={"type":"leave_msg"}
-        bot.reply_to(m, "تمام - ارسل رسالة خروج المطور:")
-        return
-
-    if uid in waiting and waiting[uid].get('type') == 'leave_msg':
-        settings["leave_dev_msg"] = m.text
-        save_settings()
-        del waiting[uid]
-        preview = smart_replace(m.text, "محسن", "Dev", "Dev 🎖️", 500, 1)
-        bot.reply_to(m, f"✅ حفظت:\n\n{preview}")
-        return
-
     if txt.startswith("اضف امر"):
         tmp=txt.replace("اضف امر:","").replace("اضف امر","").strip()
         if not tmp:
@@ -474,6 +422,10 @@ def private_menu(m):
             a,b=tmp.split("->",1)
             trig=a.strip(); resp=b.strip()
             if trig and resp:
+                # تنظيف لو فيه قناة
+                if "t.me" in resp or "A_Tools" in resp or "Tucos" in resp:
+                    bot.reply_to(m, "❌ هذا الامر فيه قناة - ممنوع")
+                    return
                 data={"type":"text","text":resp,"entities":save_entities(m)}
                 pending[uid]={"t":trig,"data":data}
                 bot.reply_to(m,f"تمام - الامر: {trig}\nاكتب: ارفعه")
@@ -481,11 +433,14 @@ def private_menu(m):
         else:
             cmd=tmp
             waiting[uid]={"step":"wait_reply","command":cmd, "type":"normal"}
-            bot.reply_to(m,f"تمام - الامر: {cmd}\nارسل الشكل - استخدم {{الاسم}} او 「 」")
+            bot.reply_to(m,f"تمام - الامر: {cmd}\nارسل الشكل")
             return
 
     if uid in waiting and waiting[uid]['step']=='wait_reply' and waiting[uid].get('type')=='normal':
         cmd=waiting[uid]['command']
+        if "t.me" in (m.text or "") or "A_Tools" in (m.text or "") or "Tucos" in (m.text or "") or "join our channel" in (m.text or "").lower():
+            bot.reply_to(m, "❌ هذا الشكل فيه قناة - ممنوع، ارسل شكل ثاني بدون رابط قناة")
+            return
         data={"type":"text","text":m.text,"entities":save_entities(m)}
         pending[uid]={"t":cmd,"data":data}
         del waiting[uid]
@@ -504,12 +459,39 @@ def private_menu(m):
 
     if txt.startswith("احذف امر"):
         cmd=txt.replace("احذف امر:","").replace("احذف امر","").strip()
+        if not cmd:
+            # اذا كتب احذف امر خروج المطور - في صورتك
+            cmd = "احذف امر خروج المطور"
         if cmd in custom:
             del custom[cmd]
             save_custom()
             bot.reply_to(m,f"✅ حذفت {cmd}")
         else:
-            bot.reply_to(m,f"❌ {cmd} مو موجود")
+            # حاول تنظيف شامل
+            found=False
+            for k in list(custom.keys()):
+                if cmd in k or k in cmd:
+                    del custom[k]
+                    found=True
+            if found:
+                save_custom()
+                bot.reply_to(m,f"✅ حذفت اوامر مشابهة لـ {cmd}")
+            else:
+                # تنظيف ملف كامل من القنوات
+                count=0
+                for k in list(custom.keys()):
+                    v=custom[k]
+                    t=""
+                    if isinstance(v, dict):
+                        t=v.get("text","")
+                    if "t.me" in t or "A_Tools" in t or "Tucos" in t:
+                        del custom[k]
+                        count+=1
+                if count>0:
+                    save_custom()
+                    bot.reply_to(m,f"🧹 نظفت {count} امر فيه قنوات")
+                else:
+                    bot.reply_to(m,f"❌ {cmd} مو موجود - اضغط تنظيف القنوات من القائمة")
         return
 
 @bot.message_handler(content_types=['left_chat_member'])
@@ -589,7 +571,7 @@ def groups(m):
         return
 
     if text in ["الاوامر","اوامر","قائمة الاوامر"]:
-        bot.send_message(chat_id, "قائمة الاوامر\n\n─────────────\n\n• اختر القسم وبتطلع لك اوامره", reply_markup=get_main_menu(), reply_to_message_id=m.message_id)
+        bot.send_message(chat_id, "قائمة الاوامر", reply_markup=get_main_menu(), reply_to_message_id=m.message_id)
         return
 
     if text in ["المتفاعلين","مت","توب","متفاعلين"]:
@@ -675,10 +657,10 @@ def groups(m):
             bot.send_message(chat_id, f"✅ تم تنزيل {mention}", parse_mode="HTML", reply_to_message_id=m.message_id)
         return
 
-    if text in ["رتبتي","رتبته","رتبه","رتبة"]:
+    if text in ["رتبتي","رتبتي ²⁷","رتبته","رتبته ²⁷","رتبه","رتبة"]:
         target_id = user_id
         target_name = first_name
-        is_ratbto = text in ["رتبته","رتبه","رتبة"]
+        is_ratbto = text in ["رتبته","رتبته ²⁷","رتبه","رتبة"]
         if is_ratbto:
             if not m.reply_to_message:
                 bot.reply_to(m,"سوي ريبلاي على الشخص واكتب: رتبته")
@@ -712,6 +694,9 @@ def groups(m):
         if isinstance(data,dict):
             raw_text = data.get("text","")
             if raw_text:
+                # منع قنوات
+                if "A_Tools" in raw_text or "Tucos" in raw_text or "t.me/A_" in raw_text:
+                    return
                 rank_badge=get_rank_with_badge(t_id,chat_id)
                 cnt,pos=get_stats(chat_id,t_id)
                 final_text = smart_replace(raw_text, tname, get_rank(t_id,chat_id), rank_badge, cnt, pos)
@@ -725,7 +710,7 @@ def groups(m):
                     bot.send_message(chat_id, final_text, reply_to_message_id=m.message_id)
                 return
 
-print(f"READY - PRIVATE MENU + SOUL ALIAS")
+print(f"READY - CLEAN NO CHANNEL + PRIVATE MENU")
 
 while True:
     try:
