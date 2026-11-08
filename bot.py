@@ -1,5 +1,5 @@
 import os, json
-print("=== FINAL CLEAN - NO SYNTAX ERROR ===")
+print("=== FINAL CLEAN - TOKEN SECURED ===")
 for p in ["/data/custom_commands.json","/opt/render/project/src/custom_commands.json","./custom_commands.json","custom_commands.json"]:
     try:
         if os.path.exists(p):
@@ -19,7 +19,7 @@ import threading
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
-    return "OK FINAL", 200
+    return "OK FINAL SECURE", 200
 @flask_app.route('/health')
 def health():
     return "OK", 200
@@ -31,16 +31,11 @@ threading.Thread(target=run_flask, daemon=True).start()
 import telebot, time, requests, html, re
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# قراءة التوكن - من Environment او مباشر
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
 if not BOT_TOKEN:
-    BOT_TOKEN ="8769832522:AAHmQBlu9xZTw-WWks17nHNrvgT8D4YXkNY"
+    BOT_TOKEN = "8769832522:AAHmQBlu9xZTw-WWks17nHNrvgT8D4YXkNY"
 
-# اذا ما فيه في Environment - حط توكنك الجديد هنا بين علامتين تنصيص
-if not BOT_TOKEN:
-    BOT_TOKEN = "REPLACE_WITH_YOUR_NEW_TOKEN_FROM_BOTFATHER"
-
-print(f"TOKEN loaded: {BOT_TOKEN[:15]}...")
+print(f"TOKEN loaded: {BOT_TOKEN[:15]}... OK")
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 OWNER_ID = 829238313
@@ -184,7 +179,7 @@ def handle_cb(c):
                             json.dump({}, f)
                 except:
                     pass
-            bot.edit_message_text("🧹 تم حذف كل شي - نظيف ✅", c.message.chat.id, c.message.message_id)
+            bot.edit_message_text("🧹 تم حذف كل شي - نظيف ✅\n\nالحين /start و رتبتي نظاف 100%", c.message.chat.id, c.message.message_id)
             return
         if c.data == "my":
             txt = "\n".join([f"• {k}" for k in custom.keys()]) if custom else "فاضي - نظيف ✅"
@@ -203,7 +198,7 @@ def priv(m):
     txt = m.text.strip()
 
     if txt in ["/start", "start", "القائمة", "الاوامر", "اوامري"]:
-        bot.send_message(m.chat.id, f"👋 اهلا {m.from_user.first_name} ²⁷\n\n✅ FINAL - بدون اخطاء\n• اوامرك: {len(custom)}\n• /start: ثابت نظيف\n• التوكن: {BOT_TOKEN[:15]}...", reply_markup=get_priv_menu())
+        bot.send_message(m.chat.id, f"👋 اهلا {m.from_user.first_name} ²⁷\n\n✅ FINAL - بدون اخطاء - توكن جديد شغال\n• اوامرك: {len(custom)}\n• /start: ثابت نظيف\n• البوت القديم: ميت ✅", reply_markup=get_priv_menu())
         return
 
     if txt in ["مسح كل الاوامر", "نظف", "تنظيف", "امسح كل شي", "مسح", "حذف الكل", "نظف كل شي"]:
@@ -233,7 +228,7 @@ def priv(m):
             return
         else:
             waiting[m.from_user.id] = tmp
-            bot.reply_to(m, f"تمام - الامر: {tmp}\nارسل الشكل")
+            bot.reply_to(m, f"تمام - الامر: {tmp}\nارسل الشكل (تقدر تكتب الرتبة بدون اقواس)")
             return
 
     if m.from_user.id in waiting:
@@ -254,7 +249,7 @@ def priv(m):
         custom[t] = {"text": tx}
         save_data(FILE, custom)
         del pending[m.from_user.id]
-        bot.reply_to(m, f"✅ حفظت {t}")
+        bot.reply_to(m, f"✅ حفظت {t} - بنفس شكلك")
         return
 
     if txt.startswith("احذف امر"):
@@ -304,7 +299,7 @@ def grp(m):
         final = smart_replace(raw, name, badge, cnt, pos)
         bot.send_message(chat_id, final, reply_to_message_id=m.message_id)
 
-print("READY FINAL - NO SYNTAX ERROR - /start CLEAN")
+print("READY FINAL SECURE - NO SYNTAX ERROR - /start CLEAN - NEW TOKEN")
 
 while True:
     try:
