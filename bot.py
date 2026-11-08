@@ -1,47 +1,24 @@
-import os, json, sys
-# ===== حذف قسري فوري لكل الملفات الفاسدة - قبل اي شي =====
-for p in [
-    "/data/custom_commands.json",
-    "/opt/render/project/src/custom_commands.json",
-    "./custom_commands.json",
-    "custom_commands.json",
-    "bot_3.py",
-    "/data/locked_commands.json"
-]:
+import os, json
+# حذف فوري - قبل كل شي
+for p in ["/data/custom_commands.json","/opt/render/project/src/custom_commands.json","./custom_commands.json","custom_commands.json"]:
     try:
-        if os.path.exists(p) and "custom_commands" in p:
-            with open(p,'r',encoding='utf-8') as f:
-                c = f.read()
-                if "Tucos" in c or "A_Tools" in c or "To use this bot" in c or "join our channel" in c.lower() or "tucosalamanca" in c.lower():
-                    print(f"!!! EMERGENCY DELETE {p}")
-                    os.remove(p)
-                    with open(p,'w',encoding='utf-8') as wf:
-                        json.dump({}, wf)
-                else:
-                    # حتى لو نظيف - احذف /start و مسح كل الاوامر لو موجودين فاسدين
-                    try:
-                        data = json.loads(c)
-                        dirty_keys = []
-                        for k,v in data.items():
-                            txt = str(v.get("text","") if isinstance(v,dict) else v)
-                            if "Tucos" in txt or "A_Tools" in txt or "To use this bot" in txt or "t.me/Tucos" in txt or "t.me/A_Tools" in txt:
-                                dirty_keys.append(k)
-                        if dirty_keys:
-                            print(f"CLEANING KEYS {dirty_keys} from {p}")
-                            for k in dirty_keys:
-                                del data[k]
-                            with open(p,'w',encoding='utf-8') as wf:
-                                json.dump(data, wf, ensure_ascii=False, indent=2)
-                    except:
-                        pass
-    except Exception as e:
-        print(f"emergency clean error {e}")
+        if os.path.exists(p):
+            os.remove(p)
+            print(f"DELETED {p}")
+    except: pass
+# انشئ ملف فاضي نظيف
+for p in ["/data/custom_commands.json"]:
+    try:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p,'w',encoding='utf-8') as f:
+            json.dump({}, f)
+    except: pass
 
 from flask import Flask
-import threading, html
+import threading
 flask_app = Flask(__name__)
 @flask_app.route('/')
-def home(): return "OK - FINAL CLEAN 2", 200
+def home(): return "OK ZERO CHANNEL", 200
 @flask_app.route('/health')
 def health(): return "OK", 200
 def run_flask():
@@ -49,11 +26,11 @@ def run_flask():
     flask_app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 threading.Thread(target=run_flask, daemon=True).start()
 
-import telebot, time, requests, re
+import telebot, time, requests, html, re
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 BOT_TOKEN = "8769832522:AAF-qXZfMQ75Z1XfnLN2hA-G90qP0xYKzTA"
-bot = telebot.TeleBot(BOT_TOKEN, threaded=False, parse_mode=None)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 OWNER_BOT_ID = 829238313
 
 try:
@@ -62,8 +39,8 @@ try:
     requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=True", timeout=10)
 except: pass
 
-BASE_DIR = "/data" if os.path.exists("/data") else ("/opt/render/project/src" if os.path.exists("/opt/render/project/src") else ".")
-def get_path(name): return os.path.join(BASE_DIR, name)
+BASE_DIR = "/data" if os.path.exists("/data") else "."
+def get_path(n): return os.path.join(BASE_DIR, n)
 
 FILE = get_path('custom_commands.json')
 LOCK_FILE = get_path('locked_commands.json')
@@ -71,71 +48,41 @@ RANKS_FILE = get_path('user_ranks.json')
 TOP_FILE = get_path('top.json')
 
 custom = {}
-locked = {}
 user_ranks = {}
 top_data = {}
 
 def load_all():
-    global custom, locked, user_ranks, top_data
-    for fpath, dct in [(FILE, custom), (LOCK_FILE, locked), (RANKS_FILE, user_ranks), (TOP_FILE, top_data)]:
+    global custom, user_ranks, top_data
+    for fp, dct in [(FILE, custom),(RANKS_FILE, user_ranks),(TOP_FILE, top_data)]:
         try:
-            if os.path.exists(fpath):
-                with open(fpath,'r',encoding='utf-8') as f:
+            if os.path.exists(fp):
+                with open(fp,'r',encoding='utf-8') as f:
                     data=json.load(f)
                     if isinstance(data, dict):
-                        cleaned={}
-                        for k,v in data.items():
-                            txt = str(v.get("text","") if isinstance(v,dict) else v)
-                            if "Tucos" in txt or "A_Tools" in txt or "To use this bot" in txt or "t.me/Tucos" in txt or "t.me/A_Tools" in txt or "join our channel" in txt.lower() or "tucosalamanca" in txt.lower():
-                                print(f"SKIP DIRTY AT LOAD {k}")
-                                continue
-                            cleaned[k]=v
                         dct.clear()
-                        dct.update(cleaned)
+                        dct.update(data)
         except: pass
 
 load_all()
 
-def save_json(path, data):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path,'w',encoding='utf-8') as f:
-        json.dump(data,f,ensure_ascii=False,indent=2)
+def save_json(p,d):
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p,'w',encoding='utf-8') as f:
+        json.dump(d,f,ensure_ascii=False,indent=2)
 def save_custom(): save_json(FILE, custom)
-def save_locked(): save_json(LOCK_FILE, locked)
 def save_ranks(): save_json(RANKS_FILE, user_ranks)
 def save_top(): save_json(TOP_FILE, top_data)
 
 RANK_ORDER = {"مميز":1,"ادمن":2,"مدير":3,"منشئ":4,"منشئ اساسي":5,"مالك":6,"مالك اساسي":7,"مالك المجموعه":8,"M":9,"MY":10,"Dev2":11,"Dev":12}
 
-def normalize_rank(t):
-    t=t.strip()
-    m={"dev":"Dev","dev2":"Dev2","my":"MY","m":"M","مالك المجموعة":"مالك المجموعه"}
-    if t.lower() in m: return m[t.lower()]
-    for r in RANK_ORDER:
-        if t==r or t in r or r in t: return r
-    return t
-
-def get_level(uid,cid):
-    if uid==OWNER_BOT_ID: return 100
-    cs=str(cid); us=str(uid)
-    if cs in user_ranks and us in user_ranks[cs]:
-        return RANK_ORDER.get(user_ranks[cs][us],0)
-    return 0
-
 def get_rank(uid,cid):
     if uid==OWNER_BOT_ID: return "Dev"
     cs=str(cid); us=str(uid)
-    if cs in user_ranks and us in user_ranks[cs]:
-        return user_ranks[cs][us]
+    if cs in user_ranks and us in user_ranks[cs]: return user_ranks[cs][us]
     return "عضو"
-
-def get_rank_with_badge(uid,cid):
-    rank = get_rank(uid,cid)
-    level = RANK_ORDER.get(rank,0)
-    if level >= RANK_ORDER.get("MY",10) or uid==OWNER_BOT_ID:
-        return f"{rank} 🎖️"
-    return rank
-
+def get_rank_badge(uid,cid):
+    r=get_rank(uid,cid)
+    return f"{r} 🎖️" if RANK_ORDER.get(r,0)>=10 or uid==OWNER_BOT_ID else r
 def add_count(cid,uid,name):
     cs=str(cid); us=str(uid)
     if cs not in top_data: top_data[cs]={}
@@ -143,473 +90,185 @@ def add_count(cid,uid,name):
     top_data[cs][us]["count"]+=1
     top_data[cs][us]["name"]=name
     save_top()
-
 def get_stats(cid,uid):
     cs=str(cid); us=str(uid)
     if cs not in top_data: return 0,0
-    sorted_users=sorted(top_data[cs].items(),key=lambda x:x[1]["count"],reverse=True)
+    s=sorted(top_data[cs].items(),key=lambda x:x[1]["count"],reverse=True)
     cnt=top_data[cs].get(us,{}).get("count",0)
     pos=0
-    for i,(u,d) in enumerate(sorted_users,1):
+    for i,(u,d) in enumerate(s,1):
         if u==us: pos=i; break
-    if pos==0: pos=len(sorted_users)+1 if cnt>0 else 1
+    if pos==0: pos=1
     return cnt,pos
 
-def get_top_list_mention(cid, uid):
-    cs=str(cid)
-    if cs not in top_data or not top_data[cs]: return "ما فيه متفاعلين بعد"
-    sorted_users=sorted(top_data[cs].items(),key=lambda x:x[1]["count"],reverse=True)[:20]
-    txt = "💬 توب اكثر 20 متفاعلين بالقروب :\n─────────────\n\n"
-    for i,(u_id, data) in enumerate(sorted_users,1):
-        name = data.get("name","مجهول")
-        cnt = data.get("count",0)
-        safe_name = html.escape(name[:25])
-        mention = f'<a href="tg://user?id={u_id}">{safe_name}</a>'
-        txt += f"{i}) {cnt} | {mention}\n"
-    txt += "\n─────────────\n"
-    my_cnt, _ = get_stats(cid, uid)
-    my_name = top_data[cs].get(str(uid),{}).get("name","٢٧")
-    safe_my = html.escape(my_name[:25])
-    my_mention = f'<a href="tg://user?id={uid}">{safe_my}</a>'
-    txt += f"≡ you) {my_cnt} | {my_mention}"
-    return txt
-
-def save_entities(msg):
-    res=[]
-    ents=msg.entities or msg.caption_entities or []
-    for e in ents:
-        en={"type":e.type,"offset":e.offset,"length":e.length}
-        if getattr(e,'url',None): en["url"]=e.url
-        if getattr(e,'custom_emoji_id',None): en["custom_emoji_id"]=e.custom_emoji_id
-        res.append(en)
-    return res
-
-def smart_replace(text, name, rank_raw, rank_badge, count, pos):
+def smart_replace(text, name, rank_badge, count, pos):
     if not text: return text
     text = re.sub(r"「\s*」", f"「 {name} 」", text)
-    # مع اقواس
-    text = text.replace("{الاسم}", name).replace("{فلان}", name).replace("{name}", name)
-    text = text.replace("{الرتبة}", rank_badge).replace("{التفاعل}", str(count)).replace("{الترتيب}", str(pos)).replace("{الرتيب}", str(pos))
-    # بدون اقواس - مثل شكلك
-    # ≡ رتبتك هي ← الرتبة
-    if "الرتبة" in text:
-        text = text.replace("الرتبة", rank_badge)
-    # التفاعل - استبدل الاخير فقط
-    if "التفاعل" in text:
-        lines = text.split("\n")
-        new_lines = []
-        for line in lines:
-            if "التفاعل" in line and "←" in line:
-                parts = line.split("←")
-                if "التفاعل" in parts[-1]:
-                    parts[-1] = parts[-1].replace("التفاعل", str(count))
-                    line = "←".join(parts)
-                else:
-                    line = line.replace("التفاعل", str(count))
-            elif "التفاعل" in line:
-                line = line.replace("التفاعل", str(count))
-            new_lines.append(line)
-        text = "\n".join(new_lines)
-    for w in ["الرتيب","الترتيب","ترتيبه","الرتبه","رتبته"]:
-        if w in text:
-            text = text.replace(w, str(pos))
+    text = text.replace("{الاسم}", name).replace("{فلان}", name)
+    text = text.replace("{الرتبة}", rank_badge).replace("الرتبة", rank_badge)
+    text = text.replace("{التفاعل}", str(count)).replace("التفاعل", str(count))
+    for w in ["{الترتيب}","{الرتيب}","الرتيب","الترتيب"]:
+        text = text.replace(w, str(pos))
     return text
 
 def get_private_menu():
-    markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        InlineKeyboardButton("➕ اضف امر", callback_data="p_add"),
-        InlineKeyboardButton("➖ احذف امر", callback_data="p_del")
-    )
-    markup.add(
-        InlineKeyboardButton("📜 اوامري", callback_data="p_my"),
-        InlineKeyboardButton("🧹 تنظيف /start", callback_data="p_clean_start")
-    )
-    markup.add(InlineKeyboardButton("• إغلاق •", callback_data="menu_close"))
-    return markup
-
-def get_private_back():
-    markup = InlineKeyboardMarkup(row_width=1)
-    markup.add(InlineKeyboardButton("• رجوع للقائمة •", callback_data="p_main"))
-    markup.add(InlineKeyboardButton("• إغلاق •", callback_data="menu_close"))
-    return markup
-
+    m=InlineKeyboardMarkup(row_width=2)
+    m.add(InlineKeyboardButton("➕ اضف امر", callback_data="p_add"),InlineKeyboardButton("➖ احذف امر", callback_data="p_del"))
+    m.add(InlineKeyboardButton("📜 اوامري", callback_data="p_my"),InlineKeyboardButton("🧹 حذف الكل", callback_data="p_wipe"))
+    m.add(InlineKeyboardButton("• إغلاق •", callback_data="close"))
+    return m
 def get_main_menu():
-    markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        InlineKeyboardButton("التفعيل والتعطيل", callback_data="menu_toggle"),
-        InlineKeyboardButton("القفل والفتح", callback_data="menu_lock")
-    )
-    markup.add(
-        InlineKeyboardButton("التسلية والخدمية", callback_data="menu_fun"),
-        InlineKeyboardButton("ادارة القروب", callback_data="menu_admin")
-    )
-    markup.add(InlineKeyboardButton("اوامر Dev", callback_data="menu_dev"))
-    markup.add(InlineKeyboardButton("الإعدادات", callback_data="menu_settings"))
-    markup.add(InlineKeyboardButton("• إغلاق •", callback_data="menu_close"))
-    return markup
+    m=InlineKeyboardMarkup(row_width=2)
+    m.add(InlineKeyboardButton("التفعيل والتعطيل", callback_data="t1"),InlineKeyboardButton("القفل والفتح", callback_data="t2"))
+    m.add(InlineKeyboardButton("التسلية والخدمية", callback_data="t3"),InlineKeyboardButton("ادارة القروب", callback_data="t4"))
+    m.add(InlineKeyboardButton("• إغلاق •", callback_data="close"))
+    return m
 
-def get_section_keyboard():
-    markup = InlineKeyboardMarkup(row_width=1)
-    markup.add(InlineKeyboardButton("• رجوع •", callback_data="menu_main"))
-    markup.add(InlineKeyboardButton("• إغلاق •", callback_data="menu_close"))
-    return markup
-
-COMMANDS_TEXT = {
-    "menu_lock": "• القفل والفتح 🔒",
-    "menu_toggle": "• التفعيل والتعطيل ⚙️",
-    "menu_fun": "• التسلية والخدمية 🎮\n\nرتبتي / رتبته / المتفاعلين",
-    "menu_admin": "• ادارة القروب 👮‍♂️",
-    "menu_dev": "• اوامر Dev 🛠️",
-    "menu_settings": "• الإعدادات ⚙️"
-}
-
-@bot.callback_query_handler(func=lambda call: True)
-def handle_callback(call):
+@bot.callback_query_handler(func=lambda c: True)
+def cb(c):
     try:
-        data = call.data
-        chat_id = call.message.chat.id
-        msg_id = call.message.message_id
-        if data == "menu_close":
-            try: bot.delete_message(chat_id, msg_id)
-            except: bot.edit_message_text("تم الإغلاق •", chat_id, msg_id)
+        if c.data=="close":
+            try: bot.delete_message(c.message.chat.id,c.message.message_id)
+            except: pass
             return
-        if data == "p_main":
-            bot.edit_message_text(f"👋 اهلا {call.from_user.first_name}\n\n✅ نظيف\n• اوامرك: {len(custom)}\nاضغط تنظيف /start اذا لسه يطلع قناة", chat_id, msg_id, reply_markup=get_private_menu())
-            return
-        if data == "p_clean_start":
-            # نظف /start وجميع الاوامر الفاسدة
-            dirty = []
-            for k,v in list(custom.items()):
-                txt = str(v.get("text","") if isinstance(v,dict) else v)
-                if "Tucos" in txt or "A_Tools" in txt or "To use this bot" in txt or "/start" in k.lower() or "مسح كل الاوامر" in k:
-                    dirty.append(k)
-            for k in dirty:
-                del custom[k]
+        if c.data=="p_wipe":
+            custom.clear()
             save_custom()
-            bot.edit_message_text(f"🧹 تم تنظيف {len(dirty)} امر فاسد:\n" + "\n".join(dirty) + f"\n\n✅ الحين /start و رتبتي نظاف\n• باقي اوامرك: {len(custom)}", chat_id, msg_id, reply_markup=get_private_back())
+            bot.edit_message_text("🧹 تم حذف كل الاوامر - نظيف ✅\n\nالحين /start و رتبتي مستحيل يطلعون قناة", c.message.chat.id, c.message.message_id)
             return
-        if data in ["p_add","p_del","p_my"]:
-            if data=="p_add": t="اضف امر X -> Y"
-            elif data=="p_del": t="احذف امر: X"
-            else: t=f"اوامرك ({len(custom)}):\n" + "\n".join([f"• {k}" for k in list(custom.keys())[:20]]) if custom else "ما عندك اوامر"
-            bot.edit_message_text(t, chat_id, msg_id, reply_markup=get_private_back())
+        if c.data=="p_my":
+            txt = "\n".join([f"• {k}" for k in custom.keys()]) if custom else "فاضي - نظيف ✅"
+            bot.edit_message_text(f"اوامرك:\n{txt}", c.message.chat.id, c.message.message_id)
             return
-        if data == "menu_main":
-            bot.edit_message_text("قائمة الاوامر", chat_id, msg_id, reply_markup=get_main_menu())
+        if c.data in ["t1","t2","t3","t4","p_add","p_del"]:
+            bot.edit_message_text("القائمة - ارسل اضف امر رتبتي", c.message.chat.id, c.message.message_id)
             return
-        if data in COMMANDS_TEXT:
-            bot.edit_message_text(COMMANDS_TEXT[data], chat_id, msg_id, reply_markup=get_section_keyboard())
-            return
-    except Exception as e:
-        print(f"cb {e}")
+    except: pass
 
-waiting_alias = {}
-waiting = {}
-pending = {}
-waiting_rank = {}
+waiting={}
+pending={}
 
-@bot.message_handler(chat_types=['private'],func=lambda m:m.from_user.id==OWNER_BOT_ID,content_types=['text'])
-def private_handler(m):
-    uid=m.from_user.id
-    txt=(m.text or "").strip()
+@bot.message_handler(chat_types=['private'],content_types=['text'])
+def priv(m):
+    if m.from_user.id!=OWNER_BOT_ID: return
+    txt=m.text.strip()
 
-    # ===== اولوية قصوى - اوامر النظام قبل custom =====
-    if txt in ["/start","start","القائمة","القائمه","قائمتي","الاوامر","اوامري","نظف","مسح كل الاوامر","تنظيف","نظف كل شي","امسح كل شي"]:
-        if txt in ["مسح كل الاوامر","تنظيف","نظف كل شي","امسح كل شي","نظف"]:
-            # حذف شامل
-            dirty_keys = []
-            for k in list(custom.keys()):
-                v = custom[k]
-                txt_check = str(v.get("text","") if isinstance(v,dict) else v)
-                if "Tucos" in txt_check or "A_Tools" in txt_check or "To use this bot" in txt_check or "t.me" in txt_check.lower() or k in ["/start","start","مسح كل الاوامر"]:
-                    dirty_keys.append(k)
-            # احذف حتى النظيف اذا كان /start او مسح كل الاوامر
-            for k in ["/start","start","مسح كل الاوامر","تنظيف"]:
-                if k in custom and k not in dirty_keys:
-                    dirty_keys.append(k)
-            for k in dirty_keys:
+    # /start - ثابت نظيف بالقوة - لا يقرا من custom ابدا
+    if txt in ["/start","start","الاوامر","اوامري","القائمة"]:
+        # احذف اي /start فاسد لو موجود
+        if "/start" in custom or "start" in custom:
+            for k in ["/start","start","مسح كل الاوامر"]:
                 if k in custom:
                     del custom[k]
             save_custom()
-            for p in [FILE, "/data/custom_commands.json", "/opt/render/project/src/custom_commands.json"]:
-                try:
-                    if os.path.exists(p):
-                        with open(p,'r',encoding='utf-8') as f:
-                            data=json.load(f)
-                        for k in dirty_keys:
-                            if k in data:
-                                del data[k]
-                        with open(p,'w',encoding='utf-8') as wf:
-                            json.dump(data, wf, ensure_ascii=False, indent=2)
-                except: pass
-            bot.reply_to(m, f"🧹 تم مسح {len(dirty_keys)} امر فاسد ✅\n\n" + "\n".join(dirty_keys) + f"\n\nالحين:\n• /start نظيف\n• رتبتي نظيف ({'موجود' if 'رتبتي' in custom else 'انحذف - ارجع اضفه'})\n\nاضف رتبتي من جديد بنفس شكلك")
-            return
-        
-        # /start دائما نظيف - حتى لو موجود في custom
-        welcome = f"👋 اهلا يا {m.from_user.first_name} ²⁷\n\n✅ البوت نظيف 100%\n\n• اوامرك النظيفة: {len(custom)}\n• رتبتي: {'✅ موجود' if 'رتبتي' in custom else '❌ مو موجود - اضفه'}\n• /start: ✅ نظيف (هذا)\n\nاذا /start لسه يطلع قناة اضغط زر تنظيف /start"
-        bot.send_message(m.chat.id, welcome, reply_markup=get_private_menu())
+        bot.send_message(m.chat.id, f"👋 اهلا {m.from_user.first_name} ²⁷\n\n✅ ZERO CHANNEL - نظيف 100%\n\n• اوامرك: {len(custom)}\n• /start: ثابت نظيف\n• رتبتي: {'موجود' if 'رتبتي' in custom else 'مو موجود'}\n\nاذا تبي تضيف رتبتي:\nاضف امر رتبتي -> شكلك", reply_markup=get_private_menu())
         return
 
-    if txt == "اضف امر":
-        waiting_alias[uid] = {"step":"wait_old", "chat_type":"private"}
-        bot.reply_to(m, "≡ ارسل لي الامر القديم ...\n-")
+    if txt in ["نظف","مسح كل الاوامر","تنظيف","امسح كل شي"]:
+        custom.clear()
+        save_custom()
+        for p in [FILE, "/data/custom_commands.json","/opt/render/project/src/custom_commands.json"]:
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+                    with open(p,'w',encoding='utf-8') as f:
+                        json.dump({}, f)
+            except: pass
+        bot.reply_to(m, "🧹 تم حذف كل شي ✅\n\nالحين /start نظيف 100%\n• اضف رتبتي من جديد")
         return
-
-    if uid in waiting_alias and waiting_alias[uid]["chat_type"]=="private":
-        step = waiting_alias[uid]["step"]
-        if step=="wait_old":
-            waiting_alias[uid]["old"] = txt
-            waiting_alias[uid]["step"] = "wait_new"
-            bot.reply_to(m, "≡ ارسل الامر الجديد عشان احطه مكان القديم\n-")
-            return
-        elif step=="wait_new":
-            new = txt
-            old = waiting_alias[uid].get("old")
-            if old:
-                if old in custom:
-                    custom[new] = custom[old].copy() if isinstance(custom[old], dict) else custom[old]
-                else:
-                    custom[new] = {"type":"alias", "target":old, "text":old}
-                save_custom()
-                bot.reply_to(m, f"≡ تم حفظ الامر باسم ( {new} ) ✓\n-")
-            del waiting_alias[uid]
-            return
 
     if txt.startswith("اضف امر"):
         tmp=txt.replace("اضف امر:","").replace("اضف امر","").strip()
-        if not tmp: return
         if "->" in tmp:
             a,b=tmp.split("->",1)
             trig=a.strip(); resp=b.strip()
-            if trig and resp:
-                if "t.me" in resp or "A_Tools" in resp or "Tucos" in resp or "To use this bot" in resp:
-                    bot.reply_to(m, "❌ فيه قناة - ممنوع"); return
-                data={"type":"text","text":resp,"entities":save_entities(m)}
-                pending[uid]={"t":trig,"data":data}
-                bot.reply_to(m,f"تمام - الامر: {trig}\nاكتب: ارفعه")
-                return
+            if "t.me" in resp or "Tucos" in resp or "A_Tools" in resp or "To use this bot" in resp:
+                bot.reply_to(m, "❌ فيه قناة - ممنوع"); return
+            pending[m.from_user.id]={"t":trig,"text":resp}
+            bot.reply_to(m, f"تمام - الامر: {trig}\nاكتب: ارفعه")
+            return
         else:
-            cmd=tmp
-            waiting[uid]={"step":"wait_reply","command":cmd}
-            bot.reply_to(m,f"تمام - الامر: {cmd}\nارسل الشكل (بدون اقواس عادي - مثلا الرتبة)")
+            waiting[m.from_user.id]=tmp
+            bot.reply_to(m, f"تمام - الامر: {tmp}\nارسل الشكل (مثال: ≡ رتبتك هي ← الرتبة)")
             return
 
-    if uid in waiting and waiting[uid]['step']=='wait_reply':
-        cmd=waiting[uid]['command']
-        if "t.me" in (m.text or "") or "A_Tools" in (m.text or "") or "Tucos" in (m.text or "") or "To use this bot" in (m.text or ""):
+    if m.from_user.id in waiting:
+        cmd=waiting[m.from_user.id]
+        if "t.me" in m.text or "Tucos" in m.text or "A_Tools" in m.text or "To use this bot" in m.text:
             bot.reply_to(m, "❌ فيه قناة - ممنوع"); return
-        data={"type":"text","text":m.text,"entities":save_entities(m)}
-        pending[uid]={"t":cmd,"data":data}
-        del waiting[uid]
-        bot.reply_to(m,f"تمام - محفوظ\nاكتب: ارفعه")
+        pending[m.from_user.id]={"t":cmd,"text":m.text}
+        del waiting[m.from_user.id]
+        bot.reply_to(m, "تمام - محفوظ\nاكتب: ارفعه")
         return
 
     if txt in ["ارفعه","احفظه"]:
-        if uid not in pending: return
-        t=pending[uid]["t"]; data=pending[uid]["data"]
-        custom[t]=data
+        if m.from_user.id not in pending: return
+        t=pending[m.from_user.id]["t"]
+        tx=pending[m.from_user.id]["text"]
+        custom[t]={"text":tx}
         save_custom()
-        del pending[uid]
-        bot.reply_to(m,f"✅ حفظت {t} بنفس شكلك بالضبط ✅\n\nالحين جرب {t} في القروب")
+        del pending[m.from_user.id]
+        bot.reply_to(m, f"✅ حفظت {t} - بنفس شكلك ✅")
         return
 
     if txt.startswith("احذف امر"):
         cmd=txt.replace("احذف امر:","").replace("احذف امر","").strip()
         if cmd in custom:
-            del custom[cmd]; save_custom()
-            bot.reply_to(m,f"✅ حذفت {cmd}")
+            del custom[cmd]
+            save_custom()
+            bot.reply_to(m, f"✅ حذفت {cmd}")
         else:
-            # حتى لو مو موجود في الذاكرة - احذف من الملف
-            for p in [FILE, "/data/custom_commands.json", "/opt/render/project/src/custom_commands.json"]:
-                try:
-                    if os.path.exists(p):
-                        with open(p,'r',encoding='utf-8') as f:
-                            data=json.load(f)
-                        if cmd in data:
-                            del data[cmd]
-                            with open(p,'w',encoding='utf-8') as wf:
-                                json.dump(data, wf, ensure_ascii=False, indent=2)
-                except: pass
-            bot.reply_to(m,f"✅ نظفت {cmd} من الملفات")
+            bot.reply_to(m, f"✅ نظفت {cmd} (مو موجود اصلا - نظيف)")
         return
 
-@bot.message_handler(content_types=['left_chat_member'])
-def on_left(m):
-    try:
-        left_user = m.left_chat_member
-        if left_user and left_user.id == OWNER_BOT_ID:
-            name = left_user.first_name or "المطور"
-            rank_badge = get_rank_with_badge(left_user.id, m.chat.id)
-            cnt, pos = get_stats(m.chat.id, left_user.id)
-            raw_msg = "≡ المطور غادر المجموعه 💔\n≡ {الاسم} ← {الرتبة}\n-"
-            final_msg = smart_replace(raw_msg, name, "Dev", rank_badge, cnt, pos)
-            bot.send_message(m.chat.id, final_msg)
-    except: pass
-
-def handle_builtin_restrict(m):
-    try:
-        if not m.reply_to_message: return
-        target_id = m.reply_to_message.from_user.id
-        bot.restrict_chat_member(m.chat.id, target_id, can_send_messages=False, until_date=int(time.time())+3600)
-        safe = html.escape(m.reply_to_message.from_user.first_name or "الشخص")
-        mention = f'<a href="tg://user?id={target_id}">{safe}</a>'
-        bot.send_message(m.chat.id, f"≡ تم تقييد المستخدم {mention} ✓", parse_mode="HTML", reply_to_message_id=m.message_id)
-    except: pass
-
-@bot.message_handler(content_types=['text','photo','sticker','animation','video','voice','document','audio'])
-def groups(m):
+@bot.message_handler(content_types=['text'])
+def grp(m):
     if m.chat.type=='private': return
-    text=(m.text or m.caption or "").strip()
+    text=(m.text or "").strip()
     chat_id=m.chat.id
-    user_id=m.from_user.id
-    first_name=m.from_user.first_name or "شخص"
+    uid=m.from_user.id
+    name=m.from_user.first_name or "شخص"
+    add_count(chat_id,uid,name)
 
-    # احسب اول
-    add_count(chat_id,user_id,first_name)
-
-    # اولوية قصوى - /start و رتبتي و المتفاعلين - حتى لو في custom
-    if text in ["/start","start","الاوامر","اوامر","قائمة الاوامر","رتبتي","رتبتي ²⁷","رتبته","المتفاعلين","مت","توب","تقييد","مق","كتم"]:
-        # تحقق اذا /start في custom وفاسد - احذفه
-        if text in ["/start","start"] and text in custom:
-            v = custom[text]
-            txt_c = str(v.get("text","") if isinstance(v,dict) else v)
-            if "Tucos" in txt_c or "A_Tools" in txt_c or "To use this bot" in txt_c:
-                del custom[text]
-                save_custom()
-        if text in ["/start","start","الاوامر","اوامر","قائمة الاوامر"]:
-            bot.send_message(chat_id, "قائمة الاوامر", reply_markup=get_main_menu(), reply_to_message_id=m.message_id)
-            return
-        if text in ["المتفاعلين","مت","توب","متفاعلين"]:
-            bot.send_message(chat_id, get_top_list_mention(chat_id, user_id), parse_mode="HTML", reply_to_message_id=m.message_id)
-            return
-        if text in ["تقييد","كتم","مق","اسكات"]:
-            if get_level(user_id, chat_id) < RANK_ORDER.get("ادمن",2) and user_id!=OWNER_BOT_ID: return
-            handle_builtin_restrict(m); return
-        if text in ["رتبتي","رتبتي ²⁷"]:
-            # اذا فيه مخصص نظيف - استخدمه
-            if "رتبتي" in custom:
-                v = custom["رتبتي"]
-                raw = v.get("text","") if isinstance(v, dict) else str(v)
-                if "Tucos" not in raw and "A_Tools" not in raw and "To use this bot" not in raw:
-                    rank_badge=get_rank_with_badge(user_id,chat_id)
-                    cnt,pos=get_stats(chat_id,user_id)
-                    final = smart_replace(raw, first_name, get_rank(user_id,chat_id), rank_badge, cnt, pos)
-                    bot.send_message(chat_id, final, reply_to_message_id=m.message_id)
-                    return
-            # افتراضي
-            rank_badge=get_rank_with_badge(user_id,chat_id)
-            cnt,pos=get_stats(chat_id,user_id)
-            bot.send_message(chat_id, f"≡ رتبة ٢٧ هي ← {rank_badge}\n≡ رسائله ← {cnt}\n≡ ترتيبه ← {pos}\n-", reply_to_message_id=m.message_id)
-            return
-
-    key_alias = f"{chat_id}_{user_id}"
-    if text == "اضف امر":
-        if get_level(user_id, chat_id) < RANK_ORDER.get("ادمن",2) and user_id!=OWNER_BOT_ID:
-            bot.reply_to(m, "❌ تحتاج ادمن"); return
-        waiting_alias[key_alias] = {"step":"wait_old", "chat_type":"group", "chat_id":chat_id, "user_id":user_id}
-        bot.reply_to(m, "≡ ارسل لي الامر القديم ...\n-")
+    # ===== اولوية قصوى - اوامر ثابتة نظيفة - لا تقرا من custom =====
+    if text in ["/start","start","الاوامر","اوامر","قائمة الاوامر"]:
+        # حتى لو /start موجود في custom - تجاهله
+        bot.send_message(chat_id, "قائمة الاوامر", reply_markup=get_main_menu(), reply_to_message_id=m.message_id)
         return
 
-    if key_alias in waiting_alias:
-        step = waiting_alias[key_alias]["step"]
-        if step=="wait_old":
-            waiting_alias[key_alias]["old"] = text
-            waiting_alias[key_alias]["step"] = "wait_new"
-            bot.reply_to(m, "≡ ارسل الامر الجديد عشان احطه مكان القديم\n-")
-            return
-        elif step=="wait_new":
-            new = text
-            old = waiting_alias[key_alias].get("old")
-            if old:
-                if old in custom: custom[new] = custom[old].copy() if isinstance(custom[old], dict) else custom[old]
-                else: custom[new] = {"type":"alias", "target":old, "text":old}
-                save_custom()
-                bot.reply_to(m, f"≡ تم حفظ الامر باسم ( {new} ) ✓\n-")
-            del waiting_alias[key_alias]
-            return
-
-    if text.startswith("رفع ") and m.reply_to_message:
-        rank_name=normalize_rank(text.replace("رفع ","").strip())
-        if rank_name in RANK_ORDER:
-            target_id=m.reply_to_message.from_user.id
-            target_name=m.reply_to_message.from_user.first_name or "الشخص"
-            if get_level(user_id,chat_id) <= RANK_ORDER.get(rank_name,0) and user_id!=OWNER_BOT_ID:
-                bot.reply_to(m,f"❌ ما تقدر ترفع {rank_name}"); return
-            cs=str(chat_id); us=str(target_id)
-            if cs not in user_ranks: user_ranks[cs]={}
-            user_ranks[cs][us]=rank_name; save_ranks()
-            cnt,pos=get_stats(chat_id,target_id)
-            rank_badge = get_rank_with_badge(target_id, chat_id)
-            safe_tname = html.escape(target_name)
-            mention = f'<a href="tg://user?id={target_id}">{safe_tname}</a>'
-            full_cmd = f"رفع {rank_name}"
-            if full_cmd in custom:
-                raw = custom[full_cmd].get("text","") if isinstance(custom[full_cmd], dict) else ""
-                final = smart_replace(raw, target_name, rank_name, rank_badge, cnt, pos)
-                final_html = final.replace(target_name, mention) if target_name in final else final
-                if mention not in final_html and "「" in final_html:
-                    final_html = re.sub(r"「[^」]*」", f"「 {mention} 」", final_html, count=1)
-                bot.send_message(chat_id, final_html, parse_mode="HTML", reply_to_message_id=m.message_id)
-            else:
-                bot.send_message(chat_id, f'≡ المستخدم ذا 「 {mention} 」\n≡ تم رفعه ✓\n≡ رتبته ← {rank_badge}\n≡ تفاعله ← {cnt}', parse_mode="HTML", reply_to_message_id=m.message_id)
-            return
-
-    if text.startswith("تنزيل ") and m.reply_to_message:
-        target_id=m.reply_to_message.from_user.id
-        cs=str(chat_id); us=str(target_id)
-        if cs in user_ranks and us in user_ranks[cs]:
-            del user_ranks[cs][us]; save_ranks()
-            safe = html.escape(m.reply_to_message.from_user.first_name or "الشخص")
-            mention = f'<a href="tg://user?id={target_id}">{safe}</a>'
-            bot.send_message(chat_id, f"✅ تم تنزيل {mention}", parse_mode="HTML", reply_to_message_id=m.message_id)
-        return
-
-    if text in custom:
-        if text in locked:
-            req = locked[text]
-            if get_level(user_id,chat_id) < RANK_ORDER.get(req,0) and user_id!=OWNER_BOT_ID:
-                bot.reply_to(m,f"❌ امر {text} مقفول لرتبة {req} فقط"); return
-        data=custom[text]
-        if isinstance(data, dict) and data.get("type")=="alias":
-            target = data.get("target","")
-            if target in ["تقييد","كتم","مق","اسكات"]:
-                handle_builtin_restrict(m); return
-        tname = first_name; t_id = user_id
-        if m.reply_to_message:
-            tname = m.reply_to_message.from_user.first_name or "الشخص"
-            t_id = m.reply_to_message.from_user.id
-        if isinstance(data,dict):
-            raw_text = data.get("text","")
-            if raw_text:
-                if "Tucos" in raw_text or "A_Tools" in raw_text or "To use this bot" in raw_text:
-                    del custom[text]; save_custom(); return
-                rank_badge=get_rank_with_badge(t_id,chat_id)
-                cnt,pos=get_stats(chat_id,t_id)
-                final_text = smart_replace(raw_text, tname, get_rank(t_id,chat_id), rank_badge, cnt, pos)
-                final_text = re.sub(r"「\s*」", f"「 {tname} 」", final_text)
-                if tname in final_text:
-                    safe = html.escape(tname)
-                    mention = f'<a href="tg://user?id={t_id}">{safe}</a>'
-                    final_html = final_text.replace(tname, mention)
-                    bot.send_message(chat_id, final_html, parse_mode="HTML", reply_to_message_id=m.message_id)
-                else:
-                    bot.send_message(chat_id, final_text, reply_to_message_id=m.message_id)
+    if text in ["رتبتي","رتبتي ²⁷"]:
+        # اذا فيه مخصص نظيف - استخدمه
+        if "رتبتي" in custom:
+            raw=custom["رتبتي"].get("text","") if isinstance(custom["رتبتي"],dict) else ""
+            if "Tucos" not in raw and "A_Tools" not in raw and "To use this bot" not in raw:
+                badge=get_rank_badge(uid,chat_id)
+                cnt,pos=get_stats(chat_id,uid)
+                final=smart_replace(raw, name, badge, cnt, pos)
+                bot.send_message(chat_id, final, reply_to_message_id=m.message_id)
                 return
+        # افتراضي نظيف
+        badge=get_rank_badge(uid,chat_id)
+        cnt,pos=get_stats(chat_id,uid)
+        bot.send_message(chat_id, f"≡ رتبتك هي ← {badge}\n≡ رسائلك ← {cnt}\n≡ ترتيبك ← {pos}\n-", reply_to_message_id=m.message_id)
+        return
 
-print(f"READY - FINAL CLEAN 2 - PRIORITY /start")
+    # باقي الاوامر المخصصة
+    if text in custom:
+        raw=custom[text].get("text","") if isinstance(custom[text],dict) else ""
+        if "Tucos" in raw or "A_Tools" in raw or "To use this bot" in raw:
+            del custom[text]
+            save_custom()
+            return
+        badge=get_rank_badge(uid,chat_id)
+        cnt,pos=get_stats(chat_id,uid)
+        final=smart_replace(raw, name, badge, cnt, pos)
+        bot.send_message(chat_id, final, reply_to_message_id=m.message_id)
+
+print("READY ZERO CHANNEL - NO Tucos NO A_ToolsX")
 
 while True:
     try:
-        bot.infinity_polling(timeout=60,long_polling_timeout=60,skip_pending=True,none_stop=True)
+        bot.infinity_polling(timeout=60,long_polling_timeout=60,skip_pending=True)
     except Exception as e:
-        err=str(e)
-        if "409" in err or "Conflict" in err:
-            time.sleep(10)
-            try:
-                bot.remove_webhook()
-                requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=True", timeout=10)
-            except: pass
-            time.sleep(5)
-        else:
-            print(f"{e}"); time.sleep
+        print(e)
+        time.sleep(5)
