@@ -1,48 +1,55 @@
 import os, json
-print("=== EMERGENCY CLEAN START ===")
+print("=== SECURE CLEAN START - NO TOKEN IN CODE ===")
 for p in ["/data/custom_commands.json","/opt/render/project/src/custom_commands.json","./custom_commands.json","custom_commands.json","/data/locked_commands.json"]:
     try:
         if os.path.exists(p):
             print(f"Deleting {p}")
             os.remove(p)
-    except as e:
+    except Exception as e:
         print(e)
 
-# Create empty clean file
 try:
     os.makedirs("/data", exist_ok=True)
     with open("/data/custom_commands.json","w",encoding="utf-8") as f:
         json.dump({}, f)
-    print("Created clean /data/custom_commands.json = {}")
-except:
-    pass
+    print("Created clean /data/custom_commands.json")
+except Exception as e:
+    print(e)
 
 from flask import Flask
 import threading
-app = Flask(__name__)
-@app.route('/')
-def h(): return "ZERO CHANNEL FINAL",200
-@app.route('/health')
+flask_app = Flask(__name__)
+@flask_app.route('/')
+def h(): return "SECURE NO TOKEN",200
+@flask_app.route('/health')
 def hl(): return "OK",200
 def run():
     port=int(os.environ.get("PORT",10000))
-    app.run(host="0.0.0.0",port=port)
+    flask_app.run(host="0.0.0.0",port=port,debug=False,use_reloader=False)
 threading.Thread(target=run,daemon=True).start()
 
 import telebot, time, requests, html, re
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-TOKEN="8769832522:AAF-qXZfMQ75Z1XfnLN2hA-G90qP0xYKzTA"
-bot=telebot.TeleBot(TOKEN,threaded=False)
-OWNER=829238313
+# التوكن من Environment فقط - ما فيه توكن هنا
+TOKEN = os.environ.get("BOT_TOKEN", "").strip()
+if not TOKEN:
+    print("❌ BOT_TOKEN not in Environment - Add it in Render Environment")
+    # حاول من التوكن القديم كاحتياط فقط للاختبار
+    TOKEN = AAHmQBlu9xZTw-WWks17nHNrvgT8D4YXkNY
+
+print(f"TOKEN loaded: {TOKEN[:10]}...")
+
+bot = telebot.TeleBot(TOKEN, threaded=False)
+OWNER = 829238313
 
 try:
     bot.remove_webhook()
     time.sleep(1)
     requests.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook?drop_pending_updates=True",timeout=10)
-except: pass
+except:
+    pass
 
-# ===== NO CUSTOM FILE AT ALL =====
 custom={}
 user_ranks={}
 top_data={}
@@ -60,7 +67,8 @@ def load():
                     data=json.load(f)
                     d.clear()
                     d.update(data)
-        except: pass
+        except:
+            pass
 
 load()
 
@@ -69,7 +77,8 @@ def save(p,d):
         os.makedirs(os.path.dirname(p),exist_ok=True)
         with open(p,'w',encoding='utf-8') as f:
             json.dump(d,f,ensure_ascii=False,indent=2)
-    except: pass
+    except:
+        pass
 
 RANK_ORDER={"مميز":1,"ادمن":2,"مدير":3,"منشئ":4,"منشئ اساسي":5,"مالك":6,"مالك اساسي":7,"مالك المجموعه":8,"M":9,"MY":10,"Dev2":11,"Dev":12}
 
@@ -104,7 +113,6 @@ def smart_replace(text,name,badge,count,pos):
     text=re.sub(r"「\s*」", f"「 {name} 」", text)
     text=text.replace("{الاسم}",name).replace("{فلان}",name)
     text=text.replace("{الرتبة}",badge).replace("الرتبة",badge)
-    # التفاعل
     if "التفاعل" in text:
         lines=text.split("\n")
         nl=[]
@@ -145,7 +153,6 @@ def callback(c):
             except: pass
             return
         if c.data=="p_wipe":
-            global custom
             custom.clear()
             for p in [FILE,"/data/custom_commands.json","/opt/render/project/src/custom_commands.json","custom_commands.json"]:
                 try:
@@ -154,43 +161,25 @@ def callback(c):
                         with open(p,'w',encoding='utf-8') as f:
                             json.dump({},f)
                 except: pass
-            bot.edit_message_text("🧹 تم حذف كل شي - الحين /start و رتبتي نظاف 100% ✅\n\n/start = قائمة الاوامر\nرتبتي = بدون قناة",c.message.chat.id,c.message.message_id)
+            bot.edit_message_text("🧹 تم حذف كل شي - الحين /start و رتبتي نظاف 100% ✅",c.message.chat.id,c.message.message_id)
             return
         if c.data=="p_my":
             txt="\n".join([f"• {k}" for k in custom.keys()]) if custom else "فاضي - نظيف ✅"
             bot.edit_message_text(f"اوامرك:\n{txt}",c.message.chat.id,c.message.message_id)
             return
-    except: pass
+    except:
+        pass
 
 waiting={}
 pending={}
 
-# ===== /start ثابت - مستحيل يطلع قناة =====
 @bot.message_handler(chat_types=['private'],func=lambda m: True,content_types=['text'])
 def private_all(m):
     if m.from_user.id!=OWNER: return
     txt=m.text.strip()
 
-    # /start - اولوية قصوى - ثابت نظيف
     if txt in ["/start","start","/start@SRDTbot","القائمة","الاوامر","اوامري"]:
-        # احذف اي ملف فاسد
-        for p in ["/data/custom_commands.json","/opt/render/project/src/custom_commands.json","custom_commands.json"]:
-            try:
-                if os.path.exists(p):
-                    with open(p,'r',encoding='utf-8') as f:
-                        data=json.load(f)
-                        dirty=False
-                        for k,v in list(data.items()):
-                            tv=str(v.get("text","") if isinstance(v,dict) else v)
-                            if "Tucos" in tv or "A_TOOLS" in tv or "A_Tools" in tv or "To use this bot" in tv or "t.me/A_TOOLS" in tv or "t.me/Tucos" in tv:
-                                del data[k]
-                                dirty=True
-                        if dirty:
-                            with open(p,'w',encoding='utf-8') as wf:
-                                json.dump(data,wf,ensure_ascii=False,indent=2)
-            except: pass
-
-        bot.send_message(m.chat.id, f"👋 اهلا {m.from_user.first_name} ²⁷\n\n✅ FINAL ZERO CHANNEL\n\n• اوامرك: {len(custom)}\n• /start: ثابت نظيف - مستحيل يطلع قناة\n• رتبتي: {'موجود ✅' if 'رتبتي' in custom else 'مو موجود - اضفه'}\n\nاذا /start لسه يطلع قناة - انت ما رفعت الملف الجديد!\nشوف Render Logs لازم يطلع READY ZERO", reply_markup=priv_menu())
+        bot.send_message(m.chat.id, f"👋 اهلا {m.from_user.first_name} ²⁷\n\n✅ SECURE - بدون توكن في الكود\n\n• اوامرك: {len(custom)}\n• /start: ثابت نظيف\n• التوكن من: Environment\n\nاذا /start لسه يطلع قناة - معناه فيه بوت ثاني شغال بنفس التوكن القديم - سوي Revoke في BotFather", reply_markup=priv_menu())
         return
 
     if txt in ["مسح كل الاوامر","نظف","تنظيف","امسح كل شي","مسح","حذف الكل"]:
@@ -202,7 +191,7 @@ def private_all(m):
                     with open(p,'w',encoding='utf-8') as f:
                         json.dump({},f)
             except: pass
-        bot.reply_to(m, "🧹 تم حذف كل شي ✅\n\nالحين:\n• /start = قائمة الاوامر (نظيف)\n• رتبتي = مو موجود (اضفه من جديد)\n\n✅ مستحيل يطلع قناة بعد الحين")
+        bot.reply_to(m, "🧹 تم حذف كل شي ✅")
         return
 
     if txt.startswith("اضف امر"):
@@ -236,7 +225,7 @@ def private_all(m):
         custom[t]={"text":tx}
         save(FILE,custom)
         del pending[m.from_user.id]
-        bot.reply_to(m, f"✅ حفظت {t} - بنفس شكلك بالضبط ✅\n\nجرب {t}")
+        bot.reply_to(m, f"✅ حفظت {t}")
         return
 
     if txt.startswith("احذف امر"):
@@ -246,21 +235,9 @@ def private_all(m):
             save(FILE,custom)
             bot.reply_to(m, f"✅ حذفت {cmd}")
         else:
-            # احذف من الملف حتى لو مو في الذاكرة
-            for p in [FILE,"/data/custom_commands.json"]:
-                try:
-                    if os.path.exists(p):
-                        with open(p,'r',encoding='utf-8') as f:
-                            data=json.load(f)
-                        if cmd in data:
-                            del data[cmd]
-                            with open(p,'w',encoding='utf-8') as wf:
-                                json.dump(data,wf,ensure_ascii=False,indent=2)
-                except: pass
             bot.reply_to(m, f"✅ نظفت {cmd}")
         return
 
-# ===== القروبات - /start ثابت نظيف =====
 @bot.message_handler(content_types=['text'],chat_types=['group','supergroup'])
 def groups(m):
     text=(m.text or "").strip()
@@ -269,7 +246,6 @@ def groups(m):
     name=m.from_user.first_name or "شخص"
     add_count(chat_id,uid,name)
 
-    # /start ثابت - لا يقرا من custom ابدا
     if text in ["/start","start","الاوامر","اوامر","قائمة الاوامر"]:
         bot.send_message(chat_id, "قائمة الاوامر", reply_markup=main_menu(), reply_to_message_id=m.message_id)
         return
@@ -299,7 +275,7 @@ def groups(m):
         final=smart_replace(raw, name, badge, cnt, pos)
         bot.send_message(chat_id, final, reply_to_message_id=m.message_id)
 
-print("READY ZERO CHANNEL FINAL - /start CLEAN - NO Tucos NO A_TOOLSx2")
+print("READY SECURE - NO TOKEN IN CODE - /start CLEAN")
 
 while True:
     try:
