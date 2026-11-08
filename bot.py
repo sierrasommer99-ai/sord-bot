@@ -36,7 +36,7 @@ TOKEN = os.environ.get("BOT_TOKEN", "").strip()
 if not TOKEN:
     print("❌ BOT_TOKEN not in Environment - Add it in Render Environment")
     # حاول من التوكن القديم كاحتياط فقط للاختبار
-    TOKEN = AAHmQBlu9xZTw-WWks17nHNrvgT8D4YXkNY
+    TOKEN = 8769832522:AAHmQBlu9xZTw-WWks17nHNrvgT8D4YXkNY
 
 print(f"TOKEN loaded: {TOKEN[:10]}...")
 
